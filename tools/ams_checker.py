@@ -15,6 +15,8 @@ URL_TEMPLATE = ('https://msg.argo.grnet.gr/v1/projects/accounting/'
                 'subscriptions/{sub}:offsets?key={token}')
 TYPES = ('grid', 'cloud', 'storage')
 
+print("Subscription     \tBacklog")
+print("="*31)
 for type in TYPES:
     for service in ('repository', 'portal'):
         sub = service + '-' + type
@@ -24,4 +26,4 @@ for type in TYPES:
         data = json.loads(response.read())
         # print(data)
         # print(data['current'], data['max'], data['max'] - data['current'])
-        print(sub, data['max'] - data['current'])
+        print(sub, data['max'] - data['current'], sep='     \t')
