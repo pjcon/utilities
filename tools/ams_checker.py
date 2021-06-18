@@ -16,7 +16,7 @@ URL_TEMPLATE = ('https://msg.argo.grnet.gr/v1/projects/accounting/'
 TYPES = ('grid', 'cloud', 'storage')
 
 print("Subscription     \tBacklog")
-print("="*31)
+print("-"*31)
 for type in TYPES:
     for service in ('repository', 'portal'):
         sub = service + '-' + type
@@ -27,3 +27,10 @@ for type in TYPES:
         # print(data)
         # print(data['current'], data['max'], data['max'] - data['current'])
         print(sub, data['max'] - data['current'], sep='     \t')
+
+for type in TYPES[0:2]:
+    sub = 'IRIS-' + type + '-APEL'
+    url = URL_TEMPLATE.format(sub=sub, token=TOKEN)
+    response = urllib.urlopen(url)
+    data = json.loads(response.read())
+    print(sub, data['max'] - data['current'], sep='     \t')
