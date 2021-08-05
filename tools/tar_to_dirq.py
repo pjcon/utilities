@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 """Module for loading json messages from a tar archive into a dirq directory
 
@@ -27,9 +27,12 @@ def main(messages_tar=None, path='./'):
 
     try:
         with tarfile.open(name=messages_tar, mode='r', fileobj=None, bufsize=10240) as tar:
-            for file in tar:
-                message_strings.append(tar.extractfile(file).read())
-    except:
+            for tfile in tar:
+                file = tar.extractfile(tfile)
+                if file is not None:
+                    message_strings.append(file.read())
+    except Exception as e:
+        print(e)
         print(f'Not a valid tar archive: {messages_tar}')
         exit(1)
 
@@ -92,6 +95,5 @@ if __name__ == '__main__':
         exit(1)
 
     path = args.path
-    messages_tar = args.messages_tar
 
     main(messages_tar=messages_tar, path=path)

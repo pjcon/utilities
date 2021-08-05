@@ -190,7 +190,6 @@ class RecordGenerator(object):
             message += "%%\n"
         return message
 
-    # TODO is there any need for this?
     def get_json_message_lowercase(self, prefix):
         """Get a json message with its key-value pairs in lower-case."""
 
@@ -382,7 +381,7 @@ class GPURecordGenerator(RecordGenerator):
             self._msg_path = msg_dir
         self._msg_path = os.path.abspath(self._msg_path)
 
-        self._msg_type = "APEL GPU message"
+        self._msg_type = "APEL-GPU-message"
         self._msg_version = "0.1"
 
         # Fields which are required by the message format.
@@ -390,7 +389,7 @@ class GPURecordGenerator(RecordGenerator):
             "SiteName", "GlobalUserName", "FQAN",
             "Count", "Cores", "AvailableDuration", "Type", "Model",
             "AssociatedRecordType", "ActiveDuration", "MeasurementYear",
-            "MeasurementMonth", 
+            "MeasurementMonth"
         ]
 
         # This list allows us to specify the order of lines when we construct
@@ -424,6 +423,69 @@ class GPURecordGenerator(RecordGenerator):
         record['GlobalUserName'] = get_random_string(dns)
         record['MeasurementMonth'] = get_random_int(end=12)
         record['MeasurementYear'] = get_random_int(2000, 2021)
+
+        #record['Type'] = mix_enums(self._allowed_types)
+        #record['associatedRecordType'] = mix_enums(self._allowed_record_types)
+
+        record['Type'] = get_random_string(self._allowed_types)
+        record['AssociatedRecordType'] = get_random_string(self._allowed_record_types)
+
+        return record
+
+class GPUSummaryGenerator(RecordGenerator):
+    """Generator for GPU summaries."""
+
+    def __init__(self, recs_per_msg, no_msgs, msg_path):
+        """Define constants used by the GPU records."""
+
+        super(GPUSummaryGenerator, self).__init__(recs_per_msg, no_msgs)
+
+        if msg_path is None:
+            self._msg_path = "gpusummary-msgs"
+        else:
+            self._msg_path = msg_dir
+        self._msg_path = os.path.abspath(self._msg_path)
+
+        self._msg_type = "APEL-GPU-summary-message"
+        self._msg_version = "0.1"
+
+        # Fields which are required by the message format.
+        self._mandatory_fields = [
+            'Month', 'Year', 'AssociatedRecordType', 'SiteName', 'Count', 
+            'AvailableDuration', 'Type', 'NumberOfRecords',
+        ]
+
+        # This list allows us to specify the order of lines when we construct
+        # records.
+        self._all_fields = [
+            'Month', 'Year', 'AssociatedRecordType', 'GlobalUserName', 'SiteName',
+            'Count', 'Cores', 'AvailableDuration', 'ActiveDuration', 'BenchmarkType',
+            'Benchmark', 'Type', 'Model', 'NumberOfRecords',
+        ]
+
+        self._int_fields = [
+            'Month', 'Year', 'Cores', 'AvailableDuration', 'ActiveDuration',
+            'NumberOfRecords'
+        ]
+
+        self._float_fields = [                
+            'Count',
+            'Benchmark'
+        ] 
+
+        self._allowed_types = ['GPU', 'FPGA', 'Other']
+        self._allowed_record_types = ['cloud']
+
+
+        RecordGenerator._get_optional_fields(self)
+
+
+    def _get_record(self, keys, job_id):
+        """Get a record, then add summary-specific items."""
+        record = RecordGenerator._get_record(self, keys, job_id)
+        record['GlobalUserName'] = get_random_string(dns)
+        record['Month'] = get_random_int(end=12)
+        record['Year'] = get_random_int(2000, 2021)
 
         #record['Type'] = mix_enums(self._allowed_types)
         #record['associatedRecordType'] = mix_enums(self._allowed_record_types)
@@ -524,6 +586,9 @@ if __name__ == '__main__':
     elif "gpu" in args:
         grg = GPURecordGenerator(recs_per_msg, no_msgs, msg_dir)
         grg.write_json_messages()
+    elif "gpusummary" in args:
+        gsg = GPUSummaryGenerator(recs_per_msg, no_msgs, msg_dir)
+        gsg.write_json_messages()
     else:
         print(f"Argument must be one of: {', '.join(allowed_args)}.")
         usage()
