@@ -12,6 +12,7 @@ import random
 import sys
 import datetime
 from time import mktime
+import json
 
 # Arbitrary strings for filling messages.
 sample_strings = '''Site Navigation
@@ -20,7 +21,7 @@ Latest Information
 Email Hoaxes
 Internet Scams
 Previous Issues
-Site FAQ's
+Site FAQs
 Hoax-Slayer Social
 HS About
 Privacy Policy
@@ -60,7 +61,7 @@ class RecordGenerator(object):
         else:
             self._recs_per_msg = recs_per_msg
         if no_msgs is None:
-            self._no_msgs = 1000
+            self._no_msgs = 100
         else:
             self._no_msgs = no_msgs
         self._msg_path = ''
@@ -91,9 +92,9 @@ class RecordGenerator(object):
         record = {}
         for key in keys:
             if key in self._int_fields:
-                record[key] = str(get_random_int())
+                record[key] = get_random_int()
             elif key in self._float_fields:
-                record[key] = str(get_random_float())
+                record[key] = get_random_float()
             else:
                 record[key] = get_random_string(sample_strings)
         record['job_id'] = job_id
@@ -131,7 +132,8 @@ class RecordGenerator(object):
         """Get a valid message string."""
         message = self._header + "\n"
         for i in range(self._recs_per_msg):
-            dict = self._get_valid_none_record(prefix + str(i))
+            #dict = self._get_valid_none_record(prefix + str(i)) # TODO rejecting based on single record failing.
+            dict = self._get_full_record(prefix + str(i)) # TODO rejecting based on single record failing.
             for key in dict.keys():
                 message += key
                 message += ": "
@@ -139,6 +141,18 @@ class RecordGenerator(object):
                 message += "\n"
             message += "%%\n"
         return message
+
+    def get_json_message(self, prefix):
+        """ Get valid json message as string."""
+
+        JSON_MSG_DICT = dict(Type=self._msg_type, Version=self._msg_version, 
+                             UsageRecords=[])
+
+        for i in range(self._recs_per_msg):
+            record = self._get_valid_none_record(prefix + str(i))
+            JSON_MSG_DICT['UsageRecords'].append(record)
+
+        return str(JSON_MSG_DICT).replace('"', "'")
 
     def get_message_ordered(self, prefix):
         """Get a valid message string, with its fields in the correct order."""
@@ -155,8 +169,22 @@ class RecordGenerator(object):
             message += "%%\n"
         return message
 
+    def get_json_message_ordered(self, prefix):
+        """ Get valid json message as string, with its fields in the correct order."""
+
+        JSON_MSG_DICT = dict(Type=self._msg_type, Version=self._msg_version, 
+                             UsageRecords=[])
+
+        for i in range(self._recs_per_msg):
+            record = self._get_full_record(prefix + str(i))
+            record_ordered = {key: record[key] for key in self._all_fields if key in record}
+            JSON_MSG_DICT['UsageRecords'].append(record_ordered)
+
+        #return str(JSON_MSG_DICT).replace("'", '"')
+        return json.dumps(JSON_MSG_DICT, indent=4).replace("'", '"')
+
     def get_message_lowercase(self, prefix):
-        """Get a message with its keys in lower-case."""
+        """Get a message with its key-value pairs in lower-case."""
         message = self._header + "\n"
         for i in range(self._recs_per_msg):
             dict = self._get_valid_none_record(prefix + str(i))
@@ -184,8 +212,23 @@ class RecordGenerator(object):
 
         return message
 
-    def write_messages(self, fmt='apel'):
+    def get_json_message_lowercase(self, prefix):
+        """Get a json message with its key-value pairs in lower-case."""
+
+        JSON_MSG_DICT = dict(Type=self._msg_type, Version=self._msg_version, 
+                             UsageRecords=[])
+
+        for i in range(self._recs_per_msg):
+            record = self._get_valid_none_record(prefix + str(i))
+            record_ordered = {key.lower(): record[key].lower() for key in self._all_fields if key in record}
+            JSON_MSG_DICT['UsageRecords'].append(record_ordered)
+
+        return json.dumps(JSON_MSG_DICT, indent=4)
+
+    def write_apel_messages(self):
         """Write the specified number of messages to the specified directory."""
+
+        # TODO write_messages
 
         try:
             self._ordered_message_formats[fmt]
@@ -209,6 +252,25 @@ class RecordGenerator(object):
 
         print("Done.")
 
+    def write_json_messages(self):
+        """Write the specified number of json messages to the specified directory."""
+        if not os.path.exists(self._msg_path):
+            print("Creating directory: " + self._msg_path + "...")
+            os.makedirs(self._msg_path)
+
+        print("Writing to directory " + self._msg_path + "...")
+
+        for i in range(self._no_msgs):
+            prefix = get_prefix(i)
+            json_str = self.get_json_message_ordered(prefix)
+            
+            filepath = os.path.join(self._msg_path, str(i).zfill(14))
+            f = open(filepath, 'w')
+            f.write(json_str)
+            f.close()
+
+        print("Done.")
+
 
 class JobRecordGenerator(RecordGenerator):
     """Generates job record messages for testing the new APEL system."""
@@ -218,10 +280,10 @@ class JobRecordGenerator(RecordGenerator):
         super(JobRecordGenerator, self).__init__(recs_per_msg, no_msgs)
         # Variables which control the operation of the generator.
 
-        if msg_dir is None:
+        if dir is None:
             self._msg_path = "job-msgs"
         else:
-            self._msg_path = msg_dir
+            self._msg_path = dir
         self._msg_path = os.path.abspath(self._msg_path)
 
         print("Creating " + str(self._no_msgs) + " messages of " + str(self._recs_per_msg) + " records each.")
@@ -266,7 +328,7 @@ class JobRecordGenerator(RecordGenerator):
         record['GlobalUserName'] = get_random_string(dns)
         record['FQAN'] = get_random_string(self._fqans)
         record['LocalJobId'] = job_id
-        record['ServiceLevelType'] = get_random_string(self._factors)
+        record['ServiceLevelType'] = get_random_string(self._factors) 
 
         if int(record['StartTime']) > int(record['EndTime']):
             record['EndTime'] = record['StartTime'] + str(get_random_int(1, 1000))
@@ -282,10 +344,10 @@ class SummaryRecordGenerator(RecordGenerator):
 
         super(SummaryRecordGenerator, self).__init__(recs_per_msg, no_msgs)
 
-        if msg_dir is None:
+        if msg_path is None:
             self._msg_path = "summary-msgs"
         else:
-            self._msg_path = msg_dir
+            self._msg_path = msg_path
         self._msg_path = os.path.abspath(self._msg_path)
 
         self._header = "APEL-summary-job-message: v0.2"
@@ -337,6 +399,70 @@ class SummaryRecordGenerator(RecordGenerator):
             record['LatestEndTime'] = str(rnd_epoch2)
         return record
 
+class GPURecordGenerator(RecordGenerator):
+    """Generator for GPU messages."""
+
+    def __init__(self, recs_per_msg, no_msgs, msg_path):
+        """Define constants used by the GPU records."""
+
+        super(GPURecordGenerator, self).__init__(recs_per_msg, no_msgs)
+
+        if msg_path is None:
+            self._msg_path = "gpu-msgs"
+        else:
+            self._msg_path = msg_dir
+        self._msg_path = os.path.abspath(self._msg_path)
+
+        self._msg_type = "APEL GPU message"
+        self._msg_version = "0.1"
+
+        # Fields which are required by the message format.
+        self._mandatory_fields = [
+            "SiteName", "GlobalUserName", "FQAN",
+            "Count", "Cores", "AvailableDuration", "Type", "Model",
+            "AssociatedRecordType", "ActiveDuration", "MeasurementYear",
+            "MeasurementMonth", 
+        ]
+
+        # This list allows us to specify the order of lines when we construct
+        # records.
+        self._all_fields = [
+            "MeasurementMonth", "MeasurementYear", 
+            "AssociatedRecordType", "AssociatedRecord", 
+            "GlobalUserName", "FQAN", "SiteName", 
+            "Count", "Cores", "ActiveDuration", "AvailableDuration", 
+            "BenchmarkType", "Benchmark", 
+            "Type", "Model",
+            #"PublisherDNID"
+        ]
+
+        self._int_fields = ["MeasurementMonth", "MeasurementYear",
+                            "ActiveDuration", "AvailableDuration",
+                            "Cores"]
+
+        self._float_fields = ["Count", "Benchmark"] 
+
+        self._allowed_types = ['GPU', 'FPGA', 'Other']
+        self._allowed_record_types = ['cloud',]
+
+
+        RecordGenerator._get_optional_fields(self)
+
+
+    def _get_record(self, keys, job_id):
+        """Get a record, then add summary-specific items."""
+        record = RecordGenerator._get_record(self, keys, job_id)
+        record['GlobalUserName'] = get_random_string(dns)
+        record['MeasurementMonth'] = get_random_int(end=12)
+        record['MeasurementYear'] = get_random_int(2000, 2021)
+
+        #record['Type'] = mix_enums(self._allowed_types)
+        #record['associatedRecordType'] = mix_enums(self._allowed_record_types)
+
+        record['Type'] = get_random_string(self._allowed_types)
+        record['AssociatedRecordType'] = get_random_string(self._allowed_record_types)
+
+        return record
 
 def get_random_int(start=1, end=1000000):
     """Get an random integer between start and end inclusive."""
@@ -366,11 +492,17 @@ def get_prefix(i):
         prefix += letters[int(number)]
         return prefix
 
+def mix_enums(enums):
+    # Balance mix correct enums with bad strings
+    samples = [get_random_string(sample_strings) for i in range(len(enums))]
+    enum_mix = enums + samples
+    return get_random_string(enum_mix)
+
 
 def usage():
     """Print a usage message."""
     print("Usage: " + sys.argv[0] + \
-        """ [-r <recs-per-msg> -m <no-msgs> -d <directory>] jobs|summaries
+        """ [-r <recs-per-msg> -m <no-msgs> -d <directory> -f <format>] jobs|summaries|gpu
 
          Defaults: recs-per-msg: 1000
                    no-msgs:      100
@@ -394,7 +526,7 @@ if __name__ == '__main__':
         opts, args = getopt.getopt(sys.argv[1:], "r:m:d:f:")
 
     except getopt.GetoptError as e:
-        print("Invalid arguments.")
+        print("Invalid options.")
         usage()
         sys.exit()
 
@@ -409,17 +541,24 @@ if __name__ == '__main__':
             elif o == "-f":
                 msg_fmt = a
     except ValueError:
-        print("Invalid arguments.")
+        print("Invalid options.")
         usage()
         sys.exit()
 
+    allowed_args = [
+        "jobs", "summaries", "gpu"
+    ]
+
     if "jobs" in args:
         jrg = JobRecordGenerator(recs_per_msg, no_msgs, msg_dir)
-        jrg.write_messages(msg_fmt)
+        jrg.write_apel_messages()
     elif "summaries" in args:
         srg = SummaryRecordGenerator(recs_per_msg, no_msgs, msg_dir)
-        srg.write_messages(msg_fmt)
+        srg.write_apel_messages()
+    elif "gpu" in args:
+        grg = GPURecordGenerator(recs_per_msg, no_msgs, msg_dir)
+        grg.write_json_messages()
     else:
-        print("Neither job nor summary records specified.")
+        print(f"Argument must be one of: {', '.join(allowed_args)}.")
         usage()
         sys.exit()
