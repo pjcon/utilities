@@ -73,6 +73,12 @@ class RecordGenerator(object):
 
         self._optional_fields = []
 
+        self._ordered_message_formats = {
+            'apel': self.get_message_ordered,
+            'csv': self.get_csv_ordered
+        }
+
+
     def _get_optional_fields(self):
 
         # optional fields = all fields - mandatory fields
@@ -162,8 +168,32 @@ class RecordGenerator(object):
             message += "%%\n"
         return message
 
-    def write_messages(self):
+    def get_csv_ordered(self, prefix):
+        """Get a valid csv string, with its columns in the correct order."""
+        message = '# ' + self._header + "\n"
+
+        message += '# Type: csv\n'
+
+        dict = self._get_valid_none_record('0')
+        message += ','.join([k for k in self._all_fields if k in dict]) + '\n'
+
+        for i in range(self._recs_per_msg):
+            dict = self._get_valid_none_record(prefix + str(i))
+            # go through in the order of all_fields
+            message += ','.join([dict[k] for k in self._all_fields if k in dict]) + '\n'
+
+        return message
+
+    def write_messages(self, fmt='apel'):
         """Write the specified number of messages to the specified directory."""
+
+        try:
+            self._ordered_message_formats[fmt]
+        except:
+            print(f'ERROR: Format {fmt} not available.')
+            print(f'Valid formats include: {list(self._ordered_message_formats.keys())}')
+            exit(1)
+
         if not os.path.exists(self._msg_path):
             print("Creating directory: " + self._msg_path + "...")
             os.makedirs(self._msg_path)
@@ -174,7 +204,7 @@ class RecordGenerator(object):
             prefix = get_prefix(i)
             filepath = os.path.join(self._msg_path, str(i).zfill(14))
             f = open(filepath, 'w')
-            f.write(self.get_message_ordered(prefix))
+            f.write(self._ordered_message_formats[fmt](prefix))
             f.close()
 
         print("Done.")
@@ -345,6 +375,7 @@ def usage():
          Defaults: recs-per-msg: 1000
                    no-msgs:      100
                    directory:    ./job-msgs | ./sum-msgs
+                   format:       apel (csv)
         """)
 
 
@@ -360,7 +391,7 @@ if __name__ == '__main__':
     args = None
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "r:m:d:")
+        opts, args = getopt.getopt(sys.argv[1:], "r:m:d:f:")
 
     except getopt.GetoptError as e:
         print("Invalid arguments.")
@@ -375,6 +406,8 @@ if __name__ == '__main__':
                 no_msgs = int(a)
             elif o == "-d":
                 msg_dir = a
+            elif o == "-f":
+                msg_fmt = a
     except ValueError:
         print("Invalid arguments.")
         usage()
@@ -382,10 +415,10 @@ if __name__ == '__main__':
 
     if "jobs" in args:
         jrg = JobRecordGenerator(recs_per_msg, no_msgs, msg_dir)
-        jrg.write_messages()
+        jrg.write_messages(msg_fmt)
     elif "summaries" in args:
         srg = SummaryRecordGenerator(recs_per_msg, no_msgs, msg_dir)
-        srg.write_messages()
+        srg.write_messages(msg_fmt)
     else:
         print("Neither job nor summary records specified.")
         usage()
