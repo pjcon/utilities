@@ -74,12 +74,26 @@ class RecordGenerator(object):
 
         self._optional_fields = []
 
+        # Label formats for message output
         self._ordered_message_formats = {
             None: self.get_apel_message_ordered,
             'apel': self.get_apel_message_ordered,
             'csv': self.get_csv_message_ordered,
             'json': self.get_json_message_ordered
         }
+
+        # Label records for message output
+        self._record_methods = {
+            None: self._get_full_record,
+            'full': self._get_full_record,
+            'minimal': self._get_minimal_record,
+            'valid_none': self._get_valid_none_record,
+            'incomplete': self._get_incomplete_record,
+            'buffered': self._get_buffered_record
+        }
+
+        self._get_record_method = 'valid_none'
+        self.buffered_records = (None)
 
 
     def _get_optional_fields(self):
@@ -130,12 +144,19 @@ class RecordGenerator(object):
 
         return rec_dict
 
-    def get_message(self, prefix):
+    def _get_buffered_record(self, *args):
+        # Allow records to be set externally
+        try:
+            return next(self.buffered_records)
+        except Exception as e:
+            print('ERROR: misconfigured record buffer.')
+            raise e
+
+    def get_apel_message(self, prefix, record_method='full'):
         """Get a valid message string."""
         message = self._header + "\n"
         for i in range(self._recs_per_msg):
-            dict = self._get_valid_none_record(prefix + str(i)) # TODO rejecting based on single record failing.
-            #dict = self._get_full_record(prefix + str(i)) # TODO rejecting based on single record failing.
+            dict = self._record_methods[record_method](prefix + str(i)) # TODO rejecting based on single record failing.
             for key in dict.keys():
                 message += key
                 message += ": "
@@ -144,23 +165,23 @@ class RecordGenerator(object):
             message += "%%\n"
         return message
 
-    def get_json_message(self, prefix):
+    def get_json_message(self, prefix, record_method='full'):
         """ Get valid json message as string."""
 
         JSON_MSG_DICT = dict(Type=self._msg_type, Version=self._msg_version, 
                              UsageRecords=[])
 
         for i in range(self._recs_per_msg):
-            record = self._get_valid_none_record(prefix + str(i))
+            record = self._record_methods[record_method](prefix + str(i))
             JSON_MSG_DICT['UsageRecords'].append(record)
 
         return str(JSON_MSG_DICT).replace('"', "'")
 
-    def get_apel_message_ordered(self, prefix):
+    def get_apel_message_ordered(self, prefix, record_method='full'):
         """Get a valid message string, with its fields in the correct order."""
         message = self._header + "\n"
         for i in range(self._recs_per_msg):
-            dict = self._get_valid_none_record(prefix + str(i))
+            dict = self._record_methods[record_method](prefix + str(i))
             # go through in the order of all_fields
             for key in self._all_fields:
                 if key in dict.keys():
@@ -171,25 +192,26 @@ class RecordGenerator(object):
             message += "%%\n"
         return message
 
-    def get_json_message_ordered(self, prefix):
+    def get_json_message_ordered(self, prefix, record_method='full'):
         """ Get valid json message as string, with its fields in the correct order."""
 
         JSON_MSG_DICT = dict(Type=self._msg_type, Version=self._msg_version, 
                              UsageRecords=[])
 
         for i in range(self._recs_per_msg):
-            record = self._get_full_record(prefix + str(i))
+            record = self._record_methods[record_method](prefix + str(i))
+            # TODO record = self._get_valid_none_record(prefix + str(i))
             record_ordered = {key: record[key] for key in self._all_fields if key in record}
             JSON_MSG_DICT['UsageRecords'].append(record_ordered)
 
         #return str(JSON_MSG_DICT).replace("'", '"')
         return json.dumps(JSON_MSG_DICT, indent=4).replace("'", '"')
 
-    def get_message_lowercase(self, prefix):
+    def get_apel_message_lowercase(self, prefix, record_method='full'):
         """Get a message with its key-value pairs in lower-case."""
         message = self._header + "\n"
         for i in range(self._recs_per_msg):
-            dict = self._get_valid_none_record(prefix + str(i))
+            dict = self._record_methods[record_method](prefix + str(i))
             for key in dict.keys():
                 message += key.lower()
                 message += ": "
@@ -198,56 +220,67 @@ class RecordGenerator(object):
             message += "%%\n"
         return message
 
-    def get_csv_message_ordered(self, prefix):
+    def get_csv_message_ordered(self, prefix, record_method='full'):
         """Get a valid csv string, with its columns in the correct order."""
         message = '# ' + self._header + "\n"
 
         message += '# Type: csv\n'
 
-        dict = self._get_valid_none_record('0')
+        dict = self._record_methods[record_method](prefix + '0')
         message += ','.join([k for k in self._all_fields if k in dict]) + '\n'
 
-        for i in range(self._recs_per_msg):
-            dict = self._get_valid_none_record(prefix + str(i))
-            # go through in the order of all_fields
-            message += ','.join([str(dict[k]) for k in self._all_fields if k in dict]) + '\n'
+        delim = ','
+
+        for i in range(self._recs_per_msg-1):
+            dict = self._record_methods[record_method](prefix + str(i))
+
+            message_list = [str(dict[k]) for k in self._all_fields if k in dict]
+            
+            # Check if delim already exists within message
+            if [m for m in message_list if delim in m]:
+                save = delim
+                delim = '\t' # Choose alternative delimiter
+                message.replace(save, delim)
+            
+            message += delim.join(message_list) + '\n'
 
         return message
 
-    def get_json_message_lowercase(self, prefix):
+    def get_json_message_lowercase(self, prefix, record_method='full'):
         """Get a json message with its key-value pairs in lower-case."""
 
         JSON_MSG_DICT = dict(Type=self._msg_type, Version=self._msg_version, 
                              UsageRecords=[])
 
         for i in range(self._recs_per_msg):
-            record = self._get_valid_none_record(prefix + str(i))
+            record = self._record_methods[record_method](prefix + str(i))
             record_ordered = {key.lower(): record[key].lower() for key in self._all_fields if key in record}
             JSON_MSG_DICT['UsageRecords'].append(record_ordered)
 
         return json.dumps(JSON_MSG_DICT, indent=4)
 
-    def write_messages(self, fmt=None):
+    def write_messages(self, fmt=None, method=None):
         """Write the specified number of messages to the specified directory."""
 
-        try:
-            self._ordered_message_formats[fmt]
-        except:
+        print(f"Creating {str(self._no_msgs)} messages with {str(self._recs_per_msg)} records each\
+ of type {type(self).__name__}.")
+
+        if fmt not in self._ordered_message_formats:
             print(f'ERROR: Format {fmt} not available.')
             print(f'Valid formats include: {list(self._ordered_message_formats.keys())}')
             exit(1)
 
         if not os.path.exists(self._msg_path):
-            print("Creating directory: " + self._msg_path + "...")
+            print("Creating directory:", self._msg_path, "...")
             os.makedirs(self._msg_path)
 
-        print("Writing to directory " + self._msg_path + "...")
+        print("Writing to directory:", self._msg_path, "...")
 
         for i in range(self._no_msgs):
             prefix = get_prefix(i)
             filepath = os.path.join(self._msg_path, str(i).zfill(14))
             f = open(filepath, 'w')
-            f.write(self._ordered_message_formats[fmt](prefix))
+            f.write(self._ordered_message_formats[fmt](prefix, record_method=method))
             f.close()
 
         print("Done.")
@@ -267,17 +300,15 @@ class JobRecordGenerator(RecordGenerator):
             self._msg_path = dir
         self._msg_path = os.path.abspath(self._msg_path)
 
-        print("Creating " + str(self._no_msgs) + " messages of " + str(self._recs_per_msg) + " records each.")
-
         self._header = "APEL-individual-job-message: v0.2"
 
         # Fields which are required by the message format.
-        self._mandatory_fields = ["Site", "SubmitHost", "LocalJobId", "WallDuration",
+        self._mandatory_fields = ["SiteID", "SubmitHost", "LocalJobId", "WallDuration",
                     "CpuDuration", "StartTime", "EndTime", "ServiceLevelType",
                     "ServiceLevel"]
 
         # All fields in the standard order
-        self._all_fields  = ["Site", "SubmitHost", "LocalJobId", "LocalUserId",
+        self._all_fields  = ["SiteID", "SubmitHost", "LocalJobId", "LocalUserId",
                        "GlobalUserName", "FQAN", "WallDuration", "CpuDuration",
                        "Processors", "NodeCount", "StartTime", "EndTime",
                        "MemoryReal", "MemoryVirtual", "ServiceLevelType",
@@ -286,7 +317,7 @@ class JobRecordGenerator(RecordGenerator):
         # Fields whose values should be integers
         self._int_fields = ["WallDuration", "CpuDuration",
                       "Processors", "NodeCount", "StartTime", "EndTime",
-                      "MemoryReal", "MemoryVirtual"]
+                      "MemoryReal", "MemoryVirtual", "SiteID"]
 
         # Fields whose values should be integers
         self._float_fields = ["ServiceLevel"]
@@ -312,7 +343,7 @@ class JobRecordGenerator(RecordGenerator):
         record['ServiceLevelType'] = get_random_string(self._factors) 
 
         if int(record['StartTime']) > int(record['EndTime']):
-            record['EndTime'] = record['StartTime'] + str(get_random_int(1, 1000))
+            record['EndTime'] = record['StartTime'] + get_random_int(1, 1000)
 
         return record
 
@@ -380,6 +411,7 @@ class SummaryRecordGenerator(RecordGenerator):
             record['LatestEndTime'] = str(rnd_epoch2)
         return record
 
+
 class SpecRecordGenerator(RecordGenerator):
     """Generator for Spec messages"""
     #SiteID            INT NOT NULL
@@ -434,7 +466,6 @@ class SpecRecordGenerator(RecordGenerator):
         return record
 
 
-
 class BlahdRecordGenerator(RecordGenerator):
     """Generator for Blahd messages"""
     #GlobalUserNameID    int             not null
@@ -463,14 +494,14 @@ class BlahdRecordGenerator(RecordGenerator):
 
         self._header = "Uninplemented"
 
-        # Fields which are required by the message format.
-        self._mandatory_fields = ['GlobalUserNameID', 'VOID', 'VOGroupID', 'VORoleID',
-                                    'CEID', 'SiteID']
-
         # All fields in the standard order
         self._all_fields = ['GlobalUserNameID', 'FQAN', 'VOID', 'VOGroupID', 'VORoleID',
                             'CEID', 'GlobalJobId', 'LrmsId', 'SiteID', 'ValidFrom',
                             'ValidUntil', 'Processed']
+
+        # Fields which are required by the message format.
+        self._mandatory_fields = ['GlobalUserNameID', 'VOID', 'VOGroupID', 'VORoleID',
+                                    'CEID', 'SiteID']
 
         # Fields whose values should be integers, except EarliestEndTime and LatestEndTime
         self._int_fields = ['VOID', 'VOGroupID', 'VORoleID', 'CEID', 'SiteID', 'Processed']
@@ -489,8 +520,6 @@ class BlahdRecordGenerator(RecordGenerator):
         [ ] Processed is either 1 or 0 (or maybe 2)
         """
         return record
-
-
 
 
 class EventRecordGenerator(RecordGenerator):
@@ -553,6 +582,7 @@ class EventRecordGenerator(RecordGenerator):
         [ ] Status is either 0, 1, 2
         """
         return record
+
 
 class GPURecordGenerator(RecordGenerator):
     """Generator for GPU messages."""
@@ -620,7 +650,7 @@ class GPURecordGenerator(RecordGenerator):
         return record
 
 
-class LinkedRecordGenerator(RecordGenerator):
+class LinkedRecordGenerator():
 
     record_generators = {
         'job':JobRecordGenerator,
@@ -631,36 +661,39 @@ class LinkedRecordGenerator(RecordGenerator):
         'event':EventRecordGenerator
     }
 
-    def __init__(self, recs_per_msg, no_msgs, linked_records=[]):
-        # Structure of linked_records:
-        # 
-        # { 
-        #   (RG1, RG2): [(j1, j2), (k1, k2), ...],
-        #   (RG1, RG3): [(j1, j3), (l1, l3), ...],
-        # }
-        #
-        # Where RGx is the record generator name, and jklx are the names of linked
-        # entries between the records. These entries will be the same match across all
-        # records. This assumes that there are the same number of records for each
-        # type.
+    def __init__(self, recs_per_msg, no_msgs, msgs_root,
+                 record_types=[], linked_fields=[]):
 
-        super(LinkedRecordGenerator, self).__init__(recs_per_msg, no_msgs)
+        #super(LinkedRecordGenerator, self).__init__(recs_per_msg, no_msgs)
 
-        self._linked_records = linked_records
+        self._linked_record_types = record_types
+        self._linked_record_fields = linked_fields
 
-        for lr in self._linked_records:
-            if lr not in records:
+        if msgs_root is None:
+            self._msgs_root = './linked-msgs'
+        else:
+            self._msgs_root = msgs_root
+
+        if recs_per_msg is None:
+            self._recs_per_msg = 100
+        else:
+            self._recs_per_msg = recs_per_msg
+
+        if no_msgs is None:
+            self._no_msgs = 100
+        else:
+            self._no_msgs = no_msgs
+
+        for lr in self._linked_record_types:
+            if lr not in LinkedRecordGenerator.record_generators:
                 raise ValueError(f'{lr} not present in available record generators:\n{list(records.keys())}')
 
-    def do(self):
-        # For each record generator listed, do the thing in the docstring.
+        self._init_record_generators()
 
-        pass
-        
 
-    def _get_dependent_record(self, keys, job_id, fields, RecordTypes):
-        """DRAFT
-        Decide randomly which entries will depend on which features of another record type.
+    def _init_record_generators(self):
+        """ DRAFT
+        Decide which fields will depend on fields from another record type.
 
         Fields list of tuples of dependent fields between each type in RecordTypes.
 
@@ -668,11 +701,107 @@ class LinkedRecordGenerator(RecordGenerator):
         fields = [('SiteID', 'SiteID', ''), ('CEID', '', 'CEID')]
         RecordTypes = [SpecRecordGenerator, JobRecordGenerator, BlahdRecordGenerator]
         - Can lead to dependency cycles/non-resolution: Generate JobRecords first.
-        - 
         
         """
-        pass
 
+        self._linked_record_generators = [LinkedRecordGenerator.record_generators[lr]
+                                          (self._recs_per_msg, self._no_msgs, None)
+                                          for lr in self._linked_record_types]
+
+        for lri, lrg in enumerate(self._linked_record_generators):
+            lrg._msg_path = os.path.join(self._msgs_root, lrg._msg_path)
+
+
+    def _get_linked_records(self, job_id, record_method='full'):
+        """ Starting with record generator 0, make linked fields of successive records match up """
+
+        # Generate a single record for each record type
+        self._linked_records = [lrg._record_methods[record_method](job_id) 
+                                for lrg in self._linked_record_generators]
+
+        for li, tlr in enumerate(self._linked_records):
+            # Keys for this record, the li'th entry in each field element
+            # relates to this generator
+
+            if li == 0:
+                # Keys for master record
+                linked_keys = [rf[li] for rf in self._linked_record_fields]
+                continue
+
+            # Amend latter records to match master record
+            this_linked_keys = [rf[li] for rf in self._linked_record_fields]
+
+            for lk, tlk in zip(linked_keys, this_linked_keys):
+                if not tlk: # If no key listed for this record, no changes needed
+                    continue
+
+                lr_value = self._linked_records[0][lk]
+                tlr_value = tlr[tlk]
+
+                if type(lr_value) == type(tlr_value):
+                    tlr[tlk] = lr_value
+                else:
+                    print(f'ERROR: linked values <{tlr_value}>, and <{lr_value}> are not of the same type for\
+                            \n\r{self._linked_record_generators[li+1]} and {self._linked_record_generators[0]}')
+                    exit(1)
+
+        return self._linked_records
+
+
+    def write_messages(self, msg_fmt):
+
+        , '','',''# Generate a set of linked records for each message
+        linked_records = [self._get_linked_records(i, record_method='full') 
+                          for i in range(self._no_msgs*self._recs_per_msg)]
+        
+        n_types = len(linked_records[0])
+        print(f'Creating {n_types} record types.')
+        for li, lrg in enumerate(self._linked_record_generators):
+
+            # Create a record "buffer" generator object for each record generator
+            # RecordGenerator._get_buffered_record(...) is called to return a record
+            lrg.buffered_records = (lr[li] for lr in linked_records)
+            lrg.write_messages(msg_fmt, method='buffered')
+
+        
+
+class JoinJobRecordsGenerator(LinkedRecordGenerator):
+    """Generate linked records for testing JoinJobRecords"""
+
+    def __init__(self, recs_per_msg, no_msgs, msgs_root):
+            
+        # Job records are built from Event, Blahd, and Spec records
+        record_types = ['job'] + ['event', 'blahd']
+
+        # How are job fields linked to latter type fields?
+        linked_fields = [
+            ('SiteID', 'SiteID', 'SiteID', 'SiteID'),
+            ('SubmitHostID', '','CEID','CEID'),
+            ('MachineNameID', 'MachineNameID','',''),
+            ('QueueID', 'QueueID','',''),
+            ('LocalJobId', 'JobName','LrmsId',''),
+            ('LocalUserId', 'LocalUserID','',''),
+            ('GlobalUserNameID', '','GlobalUserNameID',''),
+            ('FQAN', '','FQAN',''),
+            ('VOID', '','VOID',''),
+            ('VOGroupID', '','VOGroupID',''),
+            ('VORoleID', '','VORoleID',''),
+            ('WallDuration', 'WallDuration','',''),
+            ('CpuDuration', 'CpuDuration','',''),
+            ('Processors', 'Processors','',''),
+            ('NodeCount', 'NodeCount','',''),
+            ('StartTime', 'StartTime','',''),
+            ('EndTime', 'EndTime','',''),
+            ('InfastructureDescription', 'Infrastructure','',''),
+            ('MemoryRead', 'MemoryReal','',''),
+            ('MemoryVirtual', 'MemoryVirtual','',''),
+            ('ServiceLevelType', 'ServiceLevelType','',''),
+            ('ServiceLevel', 'ServiceLevel','','')
+        ]
+
+        super(JoinJobRecordsGenerator, self).__init__(recs_per_msg, no_msgs, msgs_root,
+                                            record_types=record_types,
+                                            linked_fields=linked_fields)
 
 
 def get_random_int(start=1, end=1000000):
@@ -758,7 +887,7 @@ if __name__ == '__main__':
         sys.exit()
 
     allowed_args = [
-        "jobs", "summaries", "gpu", "event", "blahd", "spec", "jobs-deps"
+        "jobs", "summaries", "gpu", "event", "blahd", "spec", "join-job-records"
     ]
 
     if "jobs" in args:
@@ -779,6 +908,10 @@ if __name__ == '__main__':
     elif "spec" in args:
         srg = SpecRecordGenerator(recs_per_msg, no_msgs, msg_dir)
         srg.write_messages(msg_fmt)
+    elif "join-job-records" in args:
+        jjrg = JoinJobRecordsGenerator(recs_per_msg, no_msgs, msg_dir)
+        jjrg.write_messages(msg_fmt)
+
     else:
         print(f"Argument must be one of: {', '.join(allowed_args)}.")
         usage()
