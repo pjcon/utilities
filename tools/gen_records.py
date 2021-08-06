@@ -75,8 +75,10 @@ class RecordGenerator(object):
         self._optional_fields = []
 
         self._ordered_message_formats = {
-            'apel': self.get_message_ordered,
-            'csv': self.get_csv_ordered
+            None: self.get_apel_message_ordered,
+            'apel': self.get_apel_message_ordered,
+            'csv': self.get_csv_message_ordered,
+            'json': self.get_json_message_ordered
         }
 
 
@@ -132,8 +134,8 @@ class RecordGenerator(object):
         """Get a valid message string."""
         message = self._header + "\n"
         for i in range(self._recs_per_msg):
-            #dict = self._get_valid_none_record(prefix + str(i)) # TODO rejecting based on single record failing.
-            dict = self._get_full_record(prefix + str(i)) # TODO rejecting based on single record failing.
+            dict = self._get_valid_none_record(prefix + str(i)) # TODO rejecting based on single record failing.
+            #dict = self._get_full_record(prefix + str(i)) # TODO rejecting based on single record failing.
             for key in dict.keys():
                 message += key
                 message += ": "
@@ -154,7 +156,7 @@ class RecordGenerator(object):
 
         return str(JSON_MSG_DICT).replace('"', "'")
 
-    def get_message_ordered(self, prefix):
+    def get_apel_message_ordered(self, prefix):
         """Get a valid message string, with its fields in the correct order."""
         message = self._header + "\n"
         for i in range(self._recs_per_msg):
@@ -164,7 +166,7 @@ class RecordGenerator(object):
                 if key in dict.keys():
                     message += key
                     message += ": "
-                    message += dict[key]
+                    message += str(dict[key])
                     message += "\n"
             message += "%%\n"
         return message
@@ -191,12 +193,12 @@ class RecordGenerator(object):
             for key in dict.keys():
                 message += key.lower()
                 message += ": "
-                message += dict[key].lower()
+                message += str(dict[key]).lower()
                 message += "\n"
             message += "%%\n"
         return message
 
-    def get_csv_ordered(self, prefix):
+    def get_csv_message_ordered(self, prefix):
         """Get a valid csv string, with its columns in the correct order."""
         message = '# ' + self._header + "\n"
 
@@ -208,7 +210,7 @@ class RecordGenerator(object):
         for i in range(self._recs_per_msg):
             dict = self._get_valid_none_record(prefix + str(i))
             # go through in the order of all_fields
-            message += ','.join([dict[k] for k in self._all_fields if k in dict]) + '\n'
+            message += ','.join([str(dict[k]) for k in self._all_fields if k in dict]) + '\n'
 
         return message
 
@@ -225,10 +227,8 @@ class RecordGenerator(object):
 
         return json.dumps(JSON_MSG_DICT, indent=4)
 
-    def write_apel_messages(self):
+    def write_messages(self, fmt=None):
         """Write the specified number of messages to the specified directory."""
-
-        # TODO write_messages
 
         try:
             self._ordered_message_formats[fmt]
@@ -248,25 +248,6 @@ class RecordGenerator(object):
             filepath = os.path.join(self._msg_path, str(i).zfill(14))
             f = open(filepath, 'w')
             f.write(self._ordered_message_formats[fmt](prefix))
-            f.close()
-
-        print("Done.")
-
-    def write_json_messages(self):
-        """Write the specified number of json messages to the specified directory."""
-        if not os.path.exists(self._msg_path):
-            print("Creating directory: " + self._msg_path + "...")
-            os.makedirs(self._msg_path)
-
-        print("Writing to directory " + self._msg_path + "...")
-
-        for i in range(self._no_msgs):
-            prefix = get_prefix(i)
-            json_str = self.get_json_message_ordered(prefix)
-            
-            filepath = os.path.join(self._msg_path, str(i).zfill(14))
-            f = open(filepath, 'w')
-            f.write(json_str)
             f.close()
 
         print("Done.")
@@ -399,6 +380,180 @@ class SummaryRecordGenerator(RecordGenerator):
             record['LatestEndTime'] = str(rnd_epoch2)
         return record
 
+class SpecRecordGenerator(RecordGenerator):
+    """Generator for Spec messages"""
+    #SiteID            INT NOT NULL
+    #CEID              INT NOT NULL
+    #StartTime         DATETIME
+    #StopTime          DATETIME
+    #ServiceLevelType  VARCHAR(50) NOT NULL
+    #ServiceLevel      DECIMAL(10,3)
+
+    def __init__(self, recs_per_msg, no_msgs, msg_path):
+        """Define constants used by the summary records."""
+
+        super(SpecRecordGenerator, self).__init__(recs_per_msg, no_msgs)
+
+        if msg_path is None:
+            self._msg_path = "spec-msgs"
+        else:
+            self._msg_path = msg_path
+        self._msg_path = os.path.abspath(self._msg_path)
+
+        self._header = "Uninplemented"
+
+        # Fields which are required by the message format.
+        self._mandatory_fields = ['SiteID', 'CEID', 'ServiceLevelType']
+
+        # All fields in the standard order
+        self._all_fields = ['SiteID', 'CEID', 'StartTime', 'StopTime', 
+                            'ServiceLevelType', 'ServiceLevel']
+
+        # Fields whose values should be integers, except EarliestEndTime and LatestEndTime
+        self._int_fields = ['SiteID', 'CEID']
+
+        # Fields whose values should be integers
+        self._float_fields = ['ServiceLevel']
+
+        RecordGenerator._get_optional_fields(self)
+
+
+    def _get_record(self, keys, job_id):
+        """Get a record, then add spec-specific items."""
+        record = RecordGenerator._get_record(self, keys, job_id)
+        """
+        [ ] Fill datetime fields starttime, stoptime
+        [ ] Ensure StartTime < EndTime
+        [ ] Fulfill requirements of JoinJobRecords
+            - SpecRecords.StopTime > EventRecords.EndTime, or StopTime is NULL
+            - SpecRecords.StartTime <= EventRecords.EndTime
+            - SpecRecords.SiteID = EventRecords.SiteID
+        """
+
+
+        return record
+
+
+
+class BlahdRecordGenerator(RecordGenerator):
+    """Generator for Blahd messages"""
+    #GlobalUserNameID    int             not null
+    #FQAN                varchar(255)    null
+    #VOID                int             not null
+    #VOGroupID           int             not null
+    #VORoleID            int             not null
+    #CEID                int             not null
+    #GlobalJobId         varchar(255)    null
+    #LrmsId              varchar(255)    null
+    #SiteID              int             not null
+    #ValidFrom           datetime        null
+    #ValidUntil          datetime        null    
+    #Processed           int             null
+
+    def __init__(self, recs_per_msg, no_msgs, msg_path):
+        """Define constants used by the summary records."""
+
+        super(BlahdRecordGenerator, self).__init__(recs_per_msg, no_msgs)
+
+        if msg_path is None:
+            self._msg_path = "blahd-msgs"
+        else:
+            self._msg_path = msg_path
+        self._msg_path = os.path.abspath(self._msg_path)
+
+        self._header = "Uninplemented"
+
+        # Fields which are required by the message format.
+        self._mandatory_fields = ['GlobalUserNameID', 'VOID', 'VOGroupID', 'VORoleID',
+                                    'CEID', 'SiteID']
+
+        # All fields in the standard order
+        self._all_fields = ['GlobalUserNameID', 'FQAN', 'VOID', 'VOGroupID', 'VORoleID',
+                            'CEID', 'GlobalJobId', 'LrmsId', 'SiteID', 'ValidFrom',
+                            'ValidUntil', 'Processed']
+
+        # Fields whose values should be integers, except EarliestEndTime and LatestEndTime
+        self._int_fields = ['VOID', 'VOGroupID', 'VORoleID', 'CEID', 'SiteID', 'Processed']
+
+        # Fields whose values should be integers
+        self._float_fields = []
+
+        RecordGenerator._get_optional_fields(self)
+
+    def _get_record(self, keys, job_id):
+        """Get a record, then add blahd-specific items."""
+        record = RecordGenerator._get_record(self, keys, job_id)
+
+        """ TODO Blahd specific requirements
+        [ ] Fill datetime fields ValidFrom, ValidUntil
+        [ ] Processed is either 1 or 0 (or maybe 2)
+        """
+        return record
+
+
+
+
+class EventRecordGenerator(RecordGenerator):
+    """Generator for Event messages"""
+    #SiteID          INT             NOT NULL
+    #JobName         VARCHAR(60)     NOT NULL
+    #LocalUserID     VARCHAR(20)        
+    #LocalUserGroup  VARCHAR(20)
+    #WallDuration    INT
+    #CpuDuration     INT
+    #StartTime       DATETIME        NOT NULL
+    #EndTime         DATETIME        NOT NULL
+    #Infrastructure  VARCHAR(100)
+    #MachineNameID   INT             NOT NULL
+    #QueueID         INT             NOT NULL
+    #MemoryReal      BIGINT
+    #MemoryVirtual   BIGINT
+    #Processors      INT
+    #NodeCount       INT
+    #Status          INT
+
+    def __init__(self, recs_per_msg, no_msgs, msg_path):
+        """Define constants used by the summary records."""
+
+        super(EventRecordGenerator, self).__init__(recs_per_msg, no_msgs)
+
+        if msg_path is None:
+            self._msg_path = "event-msgs"
+        else:
+            self._msg_path = msg_path
+        self._msg_path = os.path.abspath(self._msg_path)
+
+        self._header = "Uninplemented"
+
+        # Fields which are required by the message format.
+        self._mandatory_fields = ['SiteID', 'JobName', 'StartTime', 'EndTime',
+                                  'MachineNameID', 'QueueID']
+
+        # All fields in the standard order
+        self._all_fields = ['SiteID', 'JobName', 'LocalUserID', 'LocalUserGroup', 'WallDuration',
+                            'CpuDuration', 'StartTime', 'EndTime', 'Infrastructure', 'MachineNameID',
+                            'QueueID', 'MemoryReal', 'MemoryVirtual', 'Processors', 'NodeCount', 
+                            'Status']
+
+        # Fields whose values should be integers, except EarliestEndTime and LatestEndTime
+        self._int_fields = ['SiteID', 'WallDuration', 'CpuDuration', 'MachineNameID', 'QueueID', 
+                            'MemoryReal', 'MemoryVirtual', 'Processors', 'NodeCount', 'Status']
+
+        # Fields whose values should be integers
+        self._float_fields = []
+
+        RecordGenerator._get_optional_fields(self)
+
+    def _get_record(self, keys, job_id):
+        """Get a record, then add blahd-specific items."""
+        record = RecordGenerator._get_record(self, keys, job_id)
+
+        """ TODO Event specific requirements
+        [ ] Fill datetime fields StartTime, EndTime
+        [ ] Status is either 0, 1, 2
+        """
+        return record
+
 class GPURecordGenerator(RecordGenerator):
     """Generator for GPU messages."""
 
@@ -464,6 +619,62 @@ class GPURecordGenerator(RecordGenerator):
 
         return record
 
+
+class LinkedRecordGenerator(RecordGenerator):
+
+    record_generators = {
+        'job':JobRecordGenerator,
+        'summary':SummaryRecordGenerator,
+        'gpu':GPURecordGenerator,
+        'spec':SpecRecordGenerator,
+        'blahd':BlahdRecordGenerator,
+        'event':EventRecordGenerator
+    }
+
+    def __init__(self, recs_per_msg, no_msgs, linked_records=[]):
+        # Structure of linked_records:
+        # 
+        # { 
+        #   (RG1, RG2): [(j1, j2), (k1, k2), ...],
+        #   (RG1, RG3): [(j1, j3), (l1, l3), ...],
+        # }
+        #
+        # Where RGx is the record generator name, and jklx are the names of linked
+        # entries between the records. These entries will be the same match across all
+        # records. This assumes that there are the same number of records for each
+        # type.
+
+        super(LinkedRecordGenerator, self).__init__(recs_per_msg, no_msgs)
+
+        self._linked_records = linked_records
+
+        for lr in self._linked_records:
+            if lr not in records:
+                raise ValueError(f'{lr} not present in available record generators:\n{list(records.keys())}')
+
+    def do(self):
+        # For each record generator listed, do the thing in the docstring.
+
+        pass
+        
+
+    def _get_dependent_record(self, keys, job_id, fields, RecordTypes):
+        """DRAFT
+        Decide randomly which entries will depend on which features of another record type.
+
+        Fields list of tuples of dependent fields between each type in RecordTypes.
+
+        e.g.
+        fields = [('SiteID', 'SiteID', ''), ('CEID', '', 'CEID')]
+        RecordTypes = [SpecRecordGenerator, JobRecordGenerator, BlahdRecordGenerator]
+        - Can lead to dependency cycles/non-resolution: Generate JobRecords first.
+        - 
+        
+        """
+        pass
+
+
+
 def get_random_int(start=1, end=1000000):
     """Get an random integer between start and end inclusive."""
     x = random.random()
@@ -518,6 +729,7 @@ if __name__ == '__main__':
     recs_per_msg = None
     no_msgs = None
     msg_dir = None
+    msg_fmt = None
 
     opts = None
     args = None
@@ -546,18 +758,27 @@ if __name__ == '__main__':
         sys.exit()
 
     allowed_args = [
-        "jobs", "summaries", "gpu"
+        "jobs", "summaries", "gpu", "event", "blahd", "spec", "jobs-deps"
     ]
 
     if "jobs" in args:
         jrg = JobRecordGenerator(recs_per_msg, no_msgs, msg_dir)
-        jrg.write_apel_messages()
+        jrg.write_messages(msg_fmt)
     elif "summaries" in args:
         srg = SummaryRecordGenerator(recs_per_msg, no_msgs, msg_dir)
-        srg.write_apel_messages()
+        srg.write_messages(msg_fmt)
     elif "gpu" in args:
         grg = GPURecordGenerator(recs_per_msg, no_msgs, msg_dir)
-        grg.write_json_messages()
+        grg.write_messages(msg_fmt)
+    elif "blahd" in args:
+        brg = BlahdRecordGenerator(recs_per_msg, no_msgs, msg_dir)
+        brg.write_messages(msg_fmt)
+    elif "event" in args:
+        erg = EventRecordGenerator(recs_per_msg, no_msgs, msg_dir)
+        erg.write_messages(msg_fmt)
+    elif "spec" in args:
+        srg = SpecRecordGenerator(recs_per_msg, no_msgs, msg_dir)
+        srg.write_messages(msg_fmt)
     else:
         print(f"Argument must be one of: {', '.join(allowed_args)}.")
         usage()
