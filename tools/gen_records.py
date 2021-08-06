@@ -1,3 +1,4 @@
+#!/bin/env python3
 """Module for generating test messages for the new APEL system.
 
 It will currently generate job messages or summary messages, depending on
@@ -164,10 +165,10 @@ class RecordGenerator(object):
     def write_messages(self):
         """Write the specified number of messages to the specified directory."""
         if not os.path.exists(self._msg_path):
-            print "Creating directory: " + self._msg_path + "..."
+            print("Creating directory: " + self._msg_path + "...")
             os.makedirs(self._msg_path)
 
-        print "Writing to directory " + self._msg_path + "..."
+        print("Writing to directory " + self._msg_path + "...")
 
         for i in range(self._no_msgs):
             prefix = get_prefix(i)
@@ -176,7 +177,7 @@ class RecordGenerator(object):
             f.write(self.get_message_ordered(prefix))
             f.close()
 
-        print "Done."
+        print("Done.")
 
 
 class JobRecordGenerator(RecordGenerator):
@@ -193,7 +194,7 @@ class JobRecordGenerator(RecordGenerator):
             self._msg_path = msg_dir
         self._msg_path = os.path.abspath(self._msg_path)
 
-        print "Creating " + str(self._no_msgs) + " messages of " + str(self._recs_per_msg) + " records each."
+        print("Creating " + str(self._no_msgs) + " messages of " + str(self._recs_per_msg) + " records each.")
 
         self._header = "APEL-individual-job-message: v0.2"
 
@@ -338,13 +339,13 @@ def get_prefix(i):
 
 def usage():
     """Print a usage message."""
-    print "Usage: " + sys.argv[0] + \
+    print("Usage: " + sys.argv[0] + \
         """ [-r <recs-per-msg> -m <no-msgs> -d <directory>] jobs|summaries
 
          Defaults: recs-per-msg: 1000
                    no-msgs:      100
                    directory:    ./job-msgs | ./sum-msgs
-        """
+        """)
 
 
 if __name__ == '__main__':
@@ -361,8 +362,8 @@ if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], "r:m:d:")
 
-    except getopt.GetoptError, e:
-        print "Invalid arguments."
+    except getopt.GetoptError as e:
+        print("Invalid arguments.")
         usage()
         sys.exit()
 
@@ -375,7 +376,7 @@ if __name__ == '__main__':
             elif o == "-d":
                 msg_dir = a
     except ValueError:
-        print "Invalid arguments."
+        print("Invalid arguments.")
         usage()
         sys.exit()
 
@@ -386,6 +387,6 @@ if __name__ == '__main__':
         srg = SummaryRecordGenerator(recs_per_msg, no_msgs, msg_dir)
         srg.write_messages()
     else:
-        print "Neither job nor summary records specified."
+        print("Neither job nor summary records specified.")
         usage()
         sys.exit()
