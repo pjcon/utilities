@@ -146,11 +146,7 @@ class RecordGenerator(object):
 
     def _get_buffered_record(self, *args):
         # Allow records to be set externally
-        try:
-            return next(self.buffered_records)
-        except Exception as e:
-            print('ERROR: misconfigured record buffer.')
-            raise e
+        return next(self.buffered_records)
 
     def get_apel_message(self, prefix, record_method='full'):
         """Get a valid message string."""
@@ -303,21 +299,25 @@ class JobRecordGenerator(RecordGenerator):
         self._header = "APEL-individual-job-message: v0.2"
 
         # Fields which are required by the message format.
-        self._mandatory_fields = ["SiteID", "SubmitHost", "LocalJobId", "WallDuration",
+        self._mandatory_fields = ["SiteID", "SubmitHostID", "LocalJobId", "WallDuration",
                     "CpuDuration", "StartTime", "EndTime", "ServiceLevelType",
                     "ServiceLevel"]
 
         # All fields in the standard order
-        self._all_fields  = ["SiteID", "SubmitHost", "LocalJobId", "LocalUserId",
-                       "GlobalUserName", "FQAN", "WallDuration", "CpuDuration",
-                       "Processors", "NodeCount", "StartTime", "EndTime",
-                       "MemoryReal", "MemoryVirtual", "ServiceLevelType",
-                       "ServiceLevel"]
+        self._all_fields  = ["SiteID", "SubmitHostID", "MachineNameID", "QueueID",
+                        "LocalJobId", "LocalUserId",
+                       "GlobalUserNameID", "FQAN", "VOID", "VOGroupID", "VORoleID", 
+                       "WallDuration", "CpuDuration", "NodeCount", "Processors", 
+                       "MemoryReal", "MemoryVirtual", "StartTime", "EndTime",
+                        "EndYear", "EndMonth",
+                        "InfrastructureDescription", "InfrastructureType",
+                       "ServiceLevelType", "ServiceLevel"]
 
         # Fields whose values should be integers
-        self._int_fields = ["WallDuration", "CpuDuration",
-                      "Processors", "NodeCount", "StartTime", "EndTime",
-                      "MemoryReal", "MemoryVirtual", "SiteID"]
+        self._int_fields = ["WallDuration", "CpuDuration", "SubmitHostID", "LocalJobId",
+                      "Processors", "NodeCount", "StartTime", "EndTime", "MachineNameID",
+                      "QueueID", "MemoryReal", "MemoryVirtual", "SiteID", 'VOID',
+                      'VOGroupID', 'VORoleID']
 
         # Fields whose values should be integers
         self._float_fields = ["ServiceLevel"]
@@ -496,7 +496,7 @@ class BlahdRecordGenerator(RecordGenerator):
 
         # All fields in the standard order
         self._all_fields = ['GlobalUserNameID', 'FQAN', 'VOID', 'VOGroupID', 'VORoleID',
-                            'CEID', 'GlobalJobId', 'LrmsId', 'SiteID', 'ValidFrom',
+                            'CEID', 'GlobalJobId', 'LrmsId', 'SiteID', 'ValidFrom', 
                             'ValidUntil', 'Processed']
 
         # Fields which are required by the message format.
@@ -504,7 +504,8 @@ class BlahdRecordGenerator(RecordGenerator):
                                     'CEID', 'SiteID']
 
         # Fields whose values should be integers, except EarliestEndTime and LatestEndTime
-        self._int_fields = ['VOID', 'VOGroupID', 'VORoleID', 'CEID', 'SiteID', 'Processed']
+        self._int_fields = ['VOID', 'VOGroupID', 'VORoleID', 'CEID', "LrmsId",
+                             'SiteID', 'Processed']
 
         # Fields whose values should be integers
         self._float_fields = []
@@ -519,6 +520,9 @@ class BlahdRecordGenerator(RecordGenerator):
         [ ] Fill datetime fields ValidFrom, ValidUntil
         [ ] Processed is either 1 or 0 (or maybe 2)
         """
+
+
+
         return record
 
 
@@ -566,7 +570,8 @@ class EventRecordGenerator(RecordGenerator):
 
         # Fields whose values should be integers, except EarliestEndTime and LatestEndTime
         self._int_fields = ['SiteID', 'WallDuration', 'CpuDuration', 'MachineNameID', 'QueueID', 
-                            'MemoryReal', 'MemoryVirtual', 'Processors', 'NodeCount', 'Status']
+                            'MemoryReal', 'MemoryVirtual', 'Processors', 'NodeCount', 'Status',
+                            'JobName', 'StartTime', 'EndTime']
 
         # Fields whose values should be integers
         self._float_fields = []
@@ -712,57 +717,89 @@ class LinkedRecordGenerator():
             lrg._msg_path = os.path.join(self._msgs_root, lrg._msg_path)
 
 
-    def _get_linked_records(self, job_id, record_method='full'):
+    def _get_linked_records(self, job_id, record_method=None):
         """ Starting with record generator 0, make linked fields of successive records match up """
 
         # Generate a single record for each record type
+        # e.g., [<JobRecord>, <EventRecord>, <BlahdRecord>, <SpecRecord>] 
         self._linked_records = [lrg._record_methods[record_method](job_id) 
                                 for lrg in self._linked_record_generators]
 
-        for li, tlr in enumerate(self._linked_records):
-            # Keys for this record, the li'th entry in each field element
-            # relates to this generator
-
-            if li == 0:
-                # Keys for master record
-                linked_keys = [rf[li] for rf in self._linked_record_fields]
-                continue
-
-            # Amend latter records to match master record
-            this_linked_keys = [rf[li] for rf in self._linked_record_fields]
-
-            for lk, tlk in zip(linked_keys, this_linked_keys):
-                if not tlk: # If no key listed for this record, no changes needed
+        # Loop through linked record fields
+        # For each linked record, make all entries match up,
+        # starting with the first non-empty one as the 'master'.
+        for record_field_tuple in self._linked_record_fields:
+            master_field_chosen = False
+            for fi, field in enumerate(record_field_tuple):
+                if field:
+                    if not master_field_chosen:
+                        master_field_chosen = True
+                        master_field = field
+                        mfi = fi
+                else: # If field entry is empty, no linking needed
                     continue
 
-                lr_value = self._linked_records[0][lk]
-                tlr_value = tlr[tlk]
+                # Make records match up 
+                lr_value = self._linked_records[fi][field]
+                mlr_value = self._linked_records[mfi][master_field]
 
-                if type(lr_value) == type(tlr_value):
-                    tlr[tlk] = lr_value
+                if type(lr_value) == type(mlr_value):
+                    self._linked_records[fi][field] = mlr_value
                 else:
-                    print(f'ERROR: linked values <{tlr_value}>, and <{lr_value}> are not of the same type for\
-                            \n\r{self._linked_record_generators[li+1]} and {self._linked_record_generators[0]}')
+                    print(f'ERROR: linked values <{field}={lr_value}>, and <{master_field}={mlr_value}> are not of the same type for\
+                            \n\r{type(self._linked_record_generators[fi]).__name__} and {type(self._linked_record_generators[mfi]).__name__}')
                     exit(1)
+
+        #for li, tlr in enumerate(self._linked_records):
+        #    # Keys for this record, the li'th entry in each field element
+        #    # relates to this generator
+        #    # 
+        #    # For each record type, adjust 
+
+        #    if li == 0:
+        #        # Keys for master record
+        #        # e.g., [('CEID', '', 'blep', ''), ('', 'test', '', 'other'), ...]
+
+        #        linked_keys = [rf[li] for rf in self._linked_record_fields]
+        #        continue
+
+        #    # Amend latter records to match 'master' record
+        #    this_linked_keys = [rf[li] for rf in self._linked_record_fields]
+
+        #    for lk, tlk in zip(linked_keys, this_linked_keys):
+        #        if not tlk: # If no key listed for this record, no changes needed
+        #            continue
+
+        #        lr_value = self._linked_records[0][lk]
+        #        tlr_value = tlr[tlk]
+
+        #        if type(lr_value) == type(tlr_value):
+        #            tlr[tlk] = lr_value
+        #        else:
+        #            print(f'ERROR: linked values <{tlr_value}>, and <{lr_value}> are not of the same type for\
+        #                    \n\r{self._linked_record_generators[li+1]} and {self._linked_record_generators[0]}')
+        #            exit(1)
 
         return self._linked_records
 
-
     def write_messages(self, msg_fmt):
 
-        , '','',''# Generate a set of linked records for each message
-        linked_records = [self._get_linked_records(i, record_method='full') 
-                          for i in range(self._no_msgs*self._recs_per_msg)]
+        # Generate a set of linked records for each message
+        linked_records_list = [self._get_linked_records(i, record_method='full') 
+                            for i in range(self._no_msgs*self._recs_per_msg)]
         
-        n_types = len(linked_records[0])
+        n_types = len(self._linked_record_generators)
         print(f'Creating {n_types} record types.')
         for li, lrg in enumerate(self._linked_record_generators):
 
             # Create a record "buffer" generator object for each record generator
             # RecordGenerator._get_buffered_record(...) is called to return a record
-            lrg.buffered_records = (lr[li] for lr in linked_records)
-            lrg.write_messages(msg_fmt, method='buffered')
+            lrg.buffered_records = (lr[li] for lr in linked_records_list)
 
+            try:
+                lrg.write_messages(msg_fmt, method='buffered')
+            except StopIteration:
+                continue
         
 
 class JoinJobRecordsGenerator(LinkedRecordGenerator):
@@ -771,7 +808,7 @@ class JoinJobRecordsGenerator(LinkedRecordGenerator):
     def __init__(self, recs_per_msg, no_msgs, msgs_root):
             
         # Job records are built from Event, Blahd, and Spec records
-        record_types = ['job'] + ['event', 'blahd']
+        record_types = ['job', 'event', 'blahd', 'spec']
 
         # How are job fields linked to latter type fields?
         linked_fields = [
@@ -792,16 +829,74 @@ class JoinJobRecordsGenerator(LinkedRecordGenerator):
             ('NodeCount', 'NodeCount','',''),
             ('StartTime', 'StartTime','',''),
             ('EndTime', 'EndTime','',''),
-            ('InfastructureDescription', 'Infrastructure','',''),
-            ('MemoryRead', 'MemoryReal','',''),
+            ('InfrastructureDescription', 'Infrastructure','',''),
+            ('MemoryReal', 'MemoryReal','',''),
             ('MemoryVirtual', 'MemoryVirtual','',''),
-            ('ServiceLevelType', 'ServiceLevelType','',''),
-            ('ServiceLevel', 'ServiceLevel','','')
+            ('ServiceLevelType', '','','ServiceLevelType'),
+            ('ServiceLevel', '','','ServiceLevel')
         ]
 
         super(JoinJobRecordsGenerator, self).__init__(recs_per_msg, no_msgs, msgs_root,
                                             record_types=record_types,
                                             linked_fields=linked_fields)
+
+    def _get_linked_records(self, job_id, record_method=None):            
+        # Generate linked fields
+        super(JoinJobRecordsGenerator, self)._get_linked_records(job_id, record_method)
+
+        # SpecRecords should be spread evenly across some time interval, for each CEID, SiteID pair
+        ceid_siteid_pairs = []
+
+        # TODO returning nonetype?
+        #[self._linked_record_types.index('blahd')]
+        blahd_records = [print(lr) for lr in self._linked_records]
+        for br in blahd_records:
+             print(br)
+             pair = (br['CEID'], br['SiteID'])
+             ceid_siteid_pairs.append(pair)
+        ceid_siteid_pairs = list(set(ceid_siteid_pairs))
+
+        time_start = 0
+        time_end = 10000
+        spec_records = [lr[self._linked_record_types.index('spec')] for lr in self._linked_records]
+        for ceid, siteid in ceid_siteid_pairs:
+            for sr in spec_records:
+                # TODO create lists of lists of sr tallying matching pairs, then spread those.
+                raise Exception('TODO')
+
+        # EventRecords 
+
+        # BlahdRecords 
+
+        # Make timeframes suitable
+        # - For each row in Spec records
+        # - Get a bunch of fields from Event, Blahd, Spec records subject to 
+        #   the following joins
+        #
+        # - Inner join (each spec record with) Event records on
+        #     - Spec.StartTime <= Event.EndTime < Spec.StopTime (or null)
+        #     - Event.SiteID = Spec.SiteID
+        #         - Event happens during Spec benchmark
+        #         - Event happens for the same site and CE as the Spec benchmark
+        # 
+        # - Inner join (each event record with) Blahd records on
+        #     - Blahd.ValidFrom <= Event.EndTime < Blahd.ValidUntil
+        #     - Blahd.SiteID = Event.SiteID = Spec.SiteID
+        #     - Blahd.LrmsId = Event.JobName
+        #     - Blahd.CEID = Spec.CEID
+        #         - Event ends between blahd valid dates
+        #         - Same site
+        #         - Blahd LrmsId matches Event job name
+        #         - Blahd CEID matches Spec
+        #
+        # - Where not already processed
+        # - Update to processed fields relate to Job
+        #     - MachineNameID match
+        #     - LocalJobId = Event.JobName
+        #     - EndTime = Event.EndTime
+        #     - UpdateTime = Spec.procstart
+
+        return self._linked_records
 
 
 def get_random_int(start=1, end=1000000):
