@@ -1,6 +1,10 @@
 import os.path
 
-import pandas as pd
+# pandas is only needed for Excel output, so it can be optional.
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 
 def generate_fields_dict(csv_file):
@@ -172,7 +176,11 @@ def main():
                 if option.lower() == "console":
                     console_display(overwritten_list, fields_dict)
                 elif option.lower() == "excel":
-                    excel_display(overwritten_list, fields_dict, csv_file_name, fields_dict)
+                    if pd is None:
+                        print("Excel output requires the pandas Python tool. "
+                              "Please exit and install pandas if this is needed.")
+                    else:
+                        excel_display(overwritten_list, fields_dict, csv_file_name, fields_dict)
                 else:
                     print("Invalid option")
             elif option.lower() == "exit":
