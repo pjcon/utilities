@@ -193,4 +193,5 @@ def main():
         print("Please put a CSV file in the programs directory")
 
 
-main()
+if __name__ == '__main__':
+    main()
