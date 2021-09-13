@@ -1,10 +1,15 @@
 import os.path
+from sys import version_info
 
 # pandas is only needed for Excel output, so it can be optional.
 try:
     import pandas as pd
 except ImportError:
     pd = None
+
+
+if version_info < (3,):
+    input = raw_input
 
 
 def generate_fields_dict(csv_file):
