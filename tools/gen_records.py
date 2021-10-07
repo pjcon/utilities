@@ -10,7 +10,7 @@ import os
 import random
 import sys
 import datetime
-from time import mktime
+from time import mktime, time
 
 # Arbitrary strings for filling messages.
 sample_strings = '''Site Navigation
@@ -69,6 +69,7 @@ class RecordGenerator(object):
         self._all_fields = []
         self._int_fields = []
         self._float_fields = []
+        self._datetime_fields = []
 
         self._optional_fields = []
 
@@ -87,6 +88,8 @@ class RecordGenerator(object):
                 record[key] = str(get_random_int())
             elif key in self._float_fields:
                 record[key] = str(get_random_float())
+            elif key in self._datetime_fields:
+                record[key] = datetime.datetime.utcfromtimestamp(int(time()) - get_random_int(0, 86400*365)).strftime('%Y-%m-%d %H:%M:%S')
             else:
                 record[key] = get_random_string(sample_strings)
         record['job_id'] = job_id
