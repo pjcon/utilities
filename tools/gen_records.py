@@ -506,6 +506,9 @@ class SpecRecordGenerator(RecordGenerator):
         if record['StartTime'] > record['StopTime']:
             record['StartTime'], record['StopTime'] = record['StopTime'], record['StartTime']
 
+        record['StartTime'] = datetime.datetime.utcfromtimestamp(record['StartTime']).strftime('%Y-%m-%d %H:%M:%S')
+        record['StopTime'] = datetime.datetime.utcfromtimestamp(record['StopTime']).strftime('%Y-%m-%d %H:%M:%S')
+
         return record
 
 
