@@ -903,7 +903,7 @@ class JoinJobRecordsGenerator(LinkedRecordGenerator):
         # spec start < event end or spec start is null, and spec stop > event end
         for sr in spec_records:
             sr['StopTime'] = '' # NULL
-            sr['StartTime'] = 0
+            sr['StartTime'] = datetime.datetime.utcfromtimestamp(0).strftime('%Y-%m-%d %H:%M:%S')
 
         # TODO (encourage the following)
         # Blahd validfrom < event endtime
