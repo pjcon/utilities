@@ -123,7 +123,9 @@ class RecordGenerator(object):
             elif key in self._float_fields:
                 record[key] = str(get_random_float())
             elif key in self._datetime_fields:
-                record[key] = datetime.datetime.utcfromtimestamp(int(time()) - get_random_int(0, 86400*365)).strftime('%Y-%m-%d %H:%M:%S')
+                # Random time in last year
+                random_timestamp = int(time()) - get_random_int(0, 86400*365) # TODO read field range re dates
+                record[key] = timestamp_to_utc(random_timestamp)
             else:
                 record[key] = get_random_string(sample_strings)
         record['job_id'] = job_id
@@ -364,13 +366,15 @@ class JobRecordGenerator(RecordGenerator):
                        "ServiceLevelType", "ServiceLevel"]
 
         # Fields whose values should be integers
-        self._int_fields = ["WallDuration", "CpuDuration", "SubmitHostID", "LocalJobId",
-                      "Processors", "NodeCount", "StartTime", "EndTime", "MachineNameID",
+        self._int_fields = ["GlobalUserNameID","WallDuration", "CpuDuration", "SubmitHostID", "LocalJobId",
+                      "Processors", "NodeCount", "MachineNameID",
                       "QueueID", "MemoryReal", "MemoryVirtual", "SiteID", 'VOID',
                       'VOGroupID', 'VORoleID']
 
         # Fields whose values should be integers
         self._float_fields = ["ServiceLevel"]
+
+        self._datetime_fields = ['StartTime', 'EndTime']
 
         # Some example FQANs, some of which aren't actual FQANs.
         self._fqans = ['/atlas/higgs/Role=NULL/Capability=NULL',
@@ -395,8 +399,12 @@ class JobRecordGenerator(RecordGenerator):
         record['LocalJobId'] = job_id
         record['ServiceLevelType'] = get_random_string(self._factors) 
 
-        if int(record['StartTime']) > int(record['EndTime']):
-            record['EndTime'] = record['StartTime'] + get_random_int(1, 1000)
+        start = utc_to_timestamp(record['StartTime'])
+        finish = utc_to_timestamp(record['EndTime'])
+
+        if start > finish:
+            finish = start + get_random_int(1, 1000)
+            record['EndTime'] = timestamp_to_utc(finish)
 
         return record
 
@@ -495,7 +503,9 @@ class SpecRecordGenerator(RecordGenerator):
                             'ServiceLevelType', 'ServiceLevel']
 
         # Fields whose values should be integers, except EarliestEndTime and LatestEndTime
-        self._int_fields = ['SiteID', 'CEID', 'StartTime', 'StopTime']
+        self._int_fields = ['SiteID', 'CEID']
+
+        self._datetime_fields = ['StartTime', 'StopTime']
 
         # Fields whose values should be integers
         self._float_fields = ['ServiceLevel']
@@ -506,11 +516,11 @@ class SpecRecordGenerator(RecordGenerator):
         """Get a record, then add spec-specific items."""
         record = RecordGenerator._get_record(self, keys, job_id)
 
-        if record['StartTime'] > record['StopTime']:
-            record['StartTime'], record['StopTime'] = record['StopTime'], record['StartTime']
+        start = utc_to_timestamp(record['StartTime'])
+        finish = utc_to_timestamp(record['StopTime'])
 
-        record['StartTime'] = datetime.datetime.utcfromtimestamp(record['StartTime']).strftime('%Y-%m-%d %H:%M:%S')
-        record['StopTime'] = datetime.datetime.utcfromtimestamp(record['StopTime']).strftime('%Y-%m-%d %H:%M:%S')
+        if start > finish:
+            record['StopTime'], record['StartTime'] = timestamp_to_utc(start), timestamp_to_utc(finish)
 
         return record
 
@@ -544,7 +554,7 @@ class BlahdRecordGenerator(RecordGenerator):
         self._header = "Uninplemented"
 
         # All fields in the standard order
-        self._all_fields = ['GlobalUserNameID', 'FQAN', 'VOID', 'VOGroupID', 'VORoleID',
+        self._all_fields = ['TimeStamp', 'GlobalUserNameID', 'FQAN', 'VOID', 'VOGroupID', 'VORoleID',
                             'CEID', 'GlobalJobId', 'LrmsId', 'SiteID', 'ValidFrom', 
                             'ValidUntil', 'Processed']
 
@@ -553,10 +563,12 @@ class BlahdRecordGenerator(RecordGenerator):
                                     'CEID', 'SiteID']
 
         # Fields whose values should be integers, except EarliestEndTime and LatestEndTime
-        self._int_fields = ['VOID', 'VOGroupID', 'VORoleID', 'CEID', "LrmsId",
+        self._int_fields = ['GlobalUserNameID', 'VOID', 'VOGroupID', 'VORoleID', 'CEID', "LrmsId",
                              'SiteID', 'Processed']
 
-        self._field_ranges['Processed'] = [0,1]
+        self._datetime_fields = ['TimeStamp', 'ValidFrom', 'ValidUntil']
+
+        self._field_ranges['Processed'] = [0, 0] # TODO this should normally be 0, 1, but leave 0, 0 for now
 
         # Fields whose values should be integers
         self._float_fields = []
@@ -567,8 +579,11 @@ class BlahdRecordGenerator(RecordGenerator):
         """Get a record, then add blahd-specific items."""
         record = RecordGenerator._get_record(self, keys, job_id)
 
-        if record['ValidFrom'] > record['ValidUntil']:
-            record['ValidFrom'], record['ValidUntil'] = record['ValidUntil'], record['ValidFrom']
+        start = utc_to_timestamp(record['ValidFrom'])
+        finish = utc_to_timestamp(record['ValidUntil'])
+
+        if start > finish:
+            record['ValidUntil'], record['ValidFrom'] = timestamp_to_utc(start), timestamp_to_utc(finish)
 
         return record
 
@@ -618,12 +633,14 @@ class EventRecordGenerator(RecordGenerator):
         # Fields whose values should be integers, except EarliestEndTime and LatestEndTime
         self._int_fields = ['SiteID', 'WallDuration', 'CpuDuration', 'MachineNameID', 'QueueID', 
                             'MemoryReal', 'MemoryVirtual', 'Processors', 'NodeCount', 'Status',
-                            'JobName', 'StartTime', 'EndTime']
+                            'JobName']
+
+        self._datetime_fields = ['StartTime', 'EndTime']
 
         # Fields whose values should be integers
         self._float_fields = []
 
-        self._field_ranges['Status'] = [0, 0]
+        self._field_ranges['Status'] = [0, 2]
 
         RecordGenerator._get_optional_fields(self)
 
@@ -631,8 +648,11 @@ class EventRecordGenerator(RecordGenerator):
         """Get a record, then add blahd-specific items."""
         record = RecordGenerator._get_record(self, keys, job_id)
 
-        if record['StartTime'] > record['EndTime']:
-            record['StartTime'], record['EndTime'] = record['EndTime'], record['StartTime']
+        start = utc_to_timestamp(record['StartTime'])
+        finish = utc_to_timestamp(record['EndTime'])
+
+        if start > finish:
+            record['EndTime'], record['StartTime'] = timestamp_to_utc(start),  timestamp_to_utc(finish)
 
         return record
 
@@ -788,7 +808,7 @@ class LinkedRecordGenerator():
                 if type(lr_value) == type(mlr_value):
                     linked_record[fi][field] = mlr_value
                 else:
-                    print(f'ERROR: linked values <{field}={lr_value}>, and <{master_field}={mlr_value}> are not of the same type for\
+                    print(f'ERROR: linked values <{field}={lr_value}> ({type(lr_value)}), and <{master_field}={mlr_value}> ({type(mlr_value)}) are not of the same type for\
                             \n\r{type(self._linked_record_generators[fi]).__name__} and {type(self._linked_record_generators[mfi]).__name__}')
                     exit(1)
 
@@ -947,6 +967,12 @@ def mix_enums(enums):
     samples = [get_random_string(sample_strings) for i in range(len(enums))]
     enum_mix = enums + samples
     return get_random_string(enum_mix)
+
+def utc_to_timestamp(utc):
+    return datetime.datetime.strptime(utc, '%Y-%m-%d %H:%M:%S').timestamp()
+
+def timestamp_to_utc(timestamp):
+    return datetime.datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
 
 def usage():
