@@ -797,6 +797,7 @@ class LinkedRecordGenerator():
         'job':JobRecordGenerator,
         'summary':SummaryRecordGenerator,
         'gpu':GPURecordGenerator,
+        'gpusummary':GPUSummaryGenerator,
         'spec':SpecRecordGenerator,
         'blahd':BlahdRecordGenerator,
         'event':EventRecordGenerator
