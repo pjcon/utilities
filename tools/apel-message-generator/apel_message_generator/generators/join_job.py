@@ -1,6 +1,7 @@
 import os
 
 from apel_message_generator import config
+from apel_message_generator import utils
 from apel_message_generator.generators.record_generator import RecordGenerator
 from apel_message_generator.generators.linked_record_generator import LinkedRecordGenerator
 
@@ -92,11 +93,17 @@ class JoinJobRecordsGenerator(LinkedRecordGenerator):
         return self._linked_records
 
 
-if __name__ == '__main__':
+def main():
     recs_per_msg = config.defaults['records_per_message']
     no_msgs = config.defaults['number_of_messages']
     msg_dir = config.defaults['message_dir']
     msg_fmt = config.defaults['message_format']
 
-    jjrg = JoinJobRecordsGenerator(recs_per_msg, no_msgs, msg_dir)
-    jjrg.write_messages(msg_fmt)
+    try:
+        jjrg = JoinJobRecordsGenerator(recs_per_msg, no_msgs, msg_dir)
+        jjrg.write_messages(msg_fmt)
+    except KeyboardInterrupt:
+        pass
+
+if __name__ == '__main__':
+    main()

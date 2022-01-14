@@ -1,5 +1,10 @@
 import os
 
+from apel_message_generator import config
+from apel_message_generator.generators import (
+    job, summary, spec, blahd, event, join_job, gpu
+)
+
 class LinkedRecordGenerator():
     """ Coordinates generator classes to match specific entries.
 
@@ -7,13 +12,13 @@ class LinkedRecordGenerator():
     """
 
     record_generators = {
-        'job':JobRecordGenerator,
-        'summary':SummaryRecordGenerator,
-        'gpu':GPURecordGenerator,
-        'gpusummary':GPUSummaryGenerator,
-        'spec':SpecRecordGenerator,
-        'blahd':BlahdRecordGenerator,
-        'event':EventRecordGenerator
+        'job':job.JobRecordGenerator,
+        'summary':summary.SummaryRecordGenerator,
+        'gpu':gpu.GPURecordGenerator,
+        'gpusummary':gpu.GPUSummaryGenerator,
+        'spec':spec.SpecRecordGenerator,
+        'blahd':blahd.BlahdRecordGenerator,
+        'event':event.EventRecordGenerator
     }
 
     def __init__(self, recs_per_msg, no_msgs, msgs_root,

@@ -1,5 +1,9 @@
 import os
+from time import time
 import json
+
+from apel_message_generator import config
+from apel_message_generator import utils
 
 class RecordGenerator(object):
     """Don't create a RecordGenerator object - create a subclass
@@ -70,16 +74,16 @@ class RecordGenerator(object):
                     lower = 0
                     upper = 1000000
 
-                record[key] = get_random_int(lower, upper)
+                record[key] = utils.get_random_int(lower, upper)
 
             elif key in self._float_fields:
-                record[key] = str(get_random_float())
+                record[key] = str(utils.get_random_float())
             elif key in self._datetime_fields:
                 # Random time in last year
-                random_timestamp = int(time()) - get_random_int(0, 86400*365) # TODO read field range re dates
-                record[key] = timestamp_to_utc(random_timestamp)
+                random_timestamp = int(time()) - utils.get_random_int(0, 86400*365) # TODO read field range re dates
+                record[key] = utils.timestamp_to_utc(random_timestamp)
             else:
-                record[key] = get_random_string(sample_strings)
+                record[key] = utils.get_random_string(config.sample_strings)
         record['job_id'] = job_id
 
         return record
@@ -97,7 +101,7 @@ class RecordGenerator(object):
         # copy the list
         all_keys = [s for s in self._all_fields]
         # remove a mandatory item
-        to_remove = get_random_string(self._mandatory_fields)
+        to_remove = utils.get_random_string(self._mandatory_fields)
         all_keys.remove(to_remove)
 
         return self._get_record(all_keys, job_id)
@@ -106,8 +110,8 @@ class RecordGenerator(object):
         """Get a record giving one of the optional fields null values."""
         rec_dict = self._get_record(self._all_fields, job_id)
 
-        to_edit = get_random_string(self._optional_fields)
-        rec_dict[to_edit] = get_random_string(null_values)
+        to_edit = utils.get_random_string(self._optional_fields)
+        rec_dict[to_edit] = utils.get_random_string(config.null_values)
 
         return rec_dict
 
@@ -276,7 +280,7 @@ class RecordGenerator(object):
         print("Writing to directory:", self._msg_path, "...")
 
         for i in range(self._no_msgs):
-            prefix = get_prefix(i)
+            prefix = utils.get_prefix(i)
             filepath = os.path.join(self._msg_path, str(i).zfill(14))
             k = self._ordered_message_formats[fmt](prefix, record_method=method)
             f = open(filepath, 'w')

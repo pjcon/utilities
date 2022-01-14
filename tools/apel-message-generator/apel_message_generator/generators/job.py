@@ -1,5 +1,7 @@
 import os
 
+from apel_message_generator import config
+from apel_message_generator import utils
 from apel_message_generator.generators.record_generator import RecordGenerator
 
 class JobRecordGenerator(RecordGenerator):
@@ -62,26 +64,33 @@ class JobRecordGenerator(RecordGenerator):
         """Add job-specific items to the record after calling the generic get_record() method."""
         # Call parent class method
         record = RecordGenerator._get_record(self, keys, job_id)
-        record['GlobalUserName'] = get_random_string(dns)
-        record['FQAN'] = get_random_string(self._fqans)
+        record['GlobalUserName'] = utils.get_random_string(config.dns)
+        record['FQAN'] = utils.get_random_string(self._fqans)
         record['LocalJobId'] = job_id
-        record['ServiceLevelType'] = get_random_string(self._factors) 
+        record['ServiceLevelType'] = utils.get_random_string(self._factors) 
 
-        start = utc_to_timestamp(record['StartTime'])
-        finish = utc_to_timestamp(record['EndTime'])
+        start = utils.utc_to_timestamp(record['StartTime'])
+        finish = utils.utc_to_timestamp(record['EndTime'])
 
         if start > finish:
-            finish = start + get_random_int(1, 1000)
-            record['EndTime'] = timestamp_to_utc(finish)
+            finish = start + utils.get_random_int(1, 1000)
+            record['EndTime'] = utils.timestamp_to_utc(finish)
 
         return record
 
 
-if __name__ == '__main__':
+def main():
     recs_per_msg = config.defaults['records_per_message']
     no_msgs = config.defaults['number_of_messages']
     msg_dir = config.defaults['message_dir']
     msg_fmt = config.defaults['message_format']
 
-    jrg = JobRecordGenerator(recs_per_msg, no_msgs, msg_dir)
-    jrg.write_messages(msg_fmt)
+    try:
+        jrg = JobRecordGenerator(recs_per_msg, no_msgs, msg_dir)
+        jrg.write_messages(msg_fmt)
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == '__main__':
+    main()

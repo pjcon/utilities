@@ -1,5 +1,7 @@
 import os
 
+from apel_message_generator import config
+from apel_message_generator import utils
 from apel_message_generator.generators.record_generator import RecordGenerator
 
 class GPURecordGenerator(RecordGenerator):
@@ -55,15 +57,15 @@ class GPURecordGenerator(RecordGenerator):
     def _get_record(self, keys, job_id):
         """Get a record, then add summary-specific items."""
         record = RecordGenerator._get_record(self, keys, job_id)
-        record['GlobalUserName'] = get_random_string(dns)
-        record['MeasurementMonth'] = get_random_int(end=12)
-        record['MeasurementYear'] = get_random_int(2000, 2021)
+        record['GlobalUserName'] = utils.get_random_string(config.dns)
+        record['MeasurementMonth'] = utils.get_random_int(end=12)
+        record['MeasurementYear'] = utils.get_random_int(2000, 2021)
 
-        #record['Type'] = mix_enums(self._allowed_types)
-        #record['associatedRecordType'] = mix_enums(self._allowed_record_types)
+        #record['Type'] = utils.utils.$1(self._allowed_types)
+        #record['associatedRecordType'] = utils.utils.$1(self._allowed_record_types)
 
-        record['Type'] = get_random_string(self._allowed_types)
-        record['AssociatedRecordType'] = get_random_string(self._allowed_record_types)
+        record['Type'] = utils.get_random_string(self._allowed_types)
+        record['AssociatedRecordType'] = utils.get_random_string(self._allowed_record_types)
 
         return record
 
@@ -119,27 +121,43 @@ class GPUSummaryGenerator(RecordGenerator):
     def _get_record(self, keys, job_id):
         """Get a record, then add summary-specific items."""
         record = RecordGenerator._get_record(self, keys, job_id)
-        record['GlobalUserName'] = get_random_string(dns)
-        record['Month'] = get_random_int(end=12)
-        record['Year'] = get_random_int(2000, 2021)
+        record['GlobalUserName'] = utils.get_random_string(config.dns)
+        record['Month'] = utils.get_random_int(end=12)
+        record['Year'] = utils.get_random_int(2000, 2021)
 
-        #record['Type'] = mix_enums(self._allowed_types)
-        #record['associatedRecordType'] = mix_enums(self._allowed_record_types)
+        #record['Type'] = utils.utils.$1(self._allowed_types)
+        #record['associatedRecordType'] = utils.utils.$1(self._allowed_record_types)
 
-        record['Type'] = get_random_string(self._allowed_types)
-        record['AssociatedRecordType'] = get_random_string(self._allowed_record_types)
+        record['Type'] = utils.get_random_string(self._allowed_types)
+        record['AssociatedRecordType'] = utils.get_random_string(self._allowed_record_types)
 
         return record
 
-
-if __name__ == '__main__':
+def main():
     recs_per_msg = config.defaults['records_per_message']
     no_msgs = config.defaults['number_of_messages']
     msg_dir = config.defaults['message_dir']
     msg_fmt = config.defaults['message_format']
 
-    grg = gpu.GPURecordGenerator(recs_per_msg, no_msgs, msg_dir)
-    grg.write_messages(msg_fmt)
+    try:
+        grg = GPURecordGenerator(recs_per_msg, no_msgs, msg_dir)
+        grg.write_messages(msg_fmt)
+    except KeyboardInterrupt:
+        pass
 
-    gsg = gpu.GPUSummaryGenerator(recs_per_msg, no_msgs, msg_dir)
-    gsg.write_messages(msg_fmt)
+
+def main_summary():
+    recs_per_msg = config.defaults['records_per_message']
+    no_msgs = config.defaults['number_of_messages']
+    msg_dir = config.defaults['message_dir']
+    msg_fmt = config.defaults['message_format']
+
+    try:
+        gsg = GPUSummaryGenerator(recs_per_msg, no_msgs, msg_dir)
+        gsg.write_messages(msg_fmt)
+    except KeyboardInterrupt:
+        pass
+
+if __name__ == '__main__':
+    main()
+    main_summary()

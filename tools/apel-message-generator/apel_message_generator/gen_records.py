@@ -9,11 +9,13 @@ message.  Create a subclass of RecordGenerator for each message type.
 import getopt
 import sys
 
+from apel_message_generator import utils
 from apel_message_generator.generators import (
     job, summary, spec, blahd, event, join_job, gpu
 )
 
-if __name__ == '__main__':
+def main():
+
     """Parse the command-line arguments and create the appropriate type of
     message."""
 
@@ -30,7 +32,7 @@ if __name__ == '__main__':
 
     except getopt.GetoptError as e:
         print("Invalid options.")
-        usage()
+        utils.usage()
         sys.exit()
 
     try:
@@ -45,7 +47,7 @@ if __name__ == '__main__':
                 msg_fmt = a
     except ValueError:
         print("Invalid options.")
-        usage()
+        utils.usage()
         sys.exit()
 
     allowed_args = [
@@ -78,6 +80,9 @@ if __name__ == '__main__':
         jjrg.write_messages(msg_fmt)
     else:
         print(f"Argument must be one of: {', '.join(allowed_args)}.")
-        usage()
+        utils.usage()
         sys.exit()
 
+
+if __name__ == '__main__':
+    main()

@@ -1,5 +1,7 @@
 import os
 
+from apel_message_generator import config
+from apel_message_generator import utils
 from apel_message_generator.generators.record_generator import RecordGenerator
 
 
@@ -63,20 +65,26 @@ class EventRecordGenerator(RecordGenerator):
         """Get a record, then add blahd-specific items."""
         record = RecordGenerator._get_record(self, keys, job_id)
 
-        start = utc_to_timestamp(record['StartTime'])
-        finish = utc_to_timestamp(record['EndTime'])
+        start = utils.utc_to_timestamp(record['StartTime'])
+        finish = utils.utc_to_timestamp(record['EndTime'])
 
         if start > finish:
-            record['EndTime'], record['StartTime'] = timestamp_to_utc(start),  timestamp_to_utc(finish)
+            record['EndTime'], record['StartTime'] = utils.timestamp_to_utc(start),  utils.timestamp_to_utc(finish)
 
         return record
 
-
-if __name__ == '__main__':
+def main():
     recs_per_msg = config.defaults['records_per_message']
     no_msgs = config.defaults['number_of_messages']
     msg_dir = config.defaults['message_dir']
     msg_fmt = config.defaults['message_format']
 
-    erg = EventRecordGenerator(recs_per_msg, no_msgs, msg_dir)
-    erg.write_messages(msg_fmt)
+    try:
+        erg = EventRecordGenerator(recs_per_msg, no_msgs, msg_dir)
+        erg.write_messages(msg_fmt)
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == '__main__':
+    main()

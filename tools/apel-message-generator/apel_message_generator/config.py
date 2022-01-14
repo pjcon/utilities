@@ -2,7 +2,7 @@
 defaults = {
     'message_format':'apel',
     'records_per_message':1000,
-    'number_of_message':1000,
+    'number_of_messages':100,
     'message_dir':None,
 }
 

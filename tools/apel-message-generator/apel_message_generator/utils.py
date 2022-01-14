@@ -2,6 +2,7 @@ import random
 import sys
 import datetime
 
+
 def get_random_int(start=1, end=1000000):
     """Get an random integer between start and end inclusive."""
     x = random.random()
