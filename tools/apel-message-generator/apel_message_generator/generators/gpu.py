@@ -15,7 +15,7 @@ class GPURecordGenerator(RecordGenerator):
         if msg_path is None:
             self._msg_path = "gpu-msgs"
         else:
-            self._msg_path = msg_dir
+            self._msg_path = msg_path
         self._msg_path = os.path.abspath(self._msg_path)
 
         self._msg_type = "APEL-GPU-message"
@@ -81,7 +81,7 @@ class GPUSummaryGenerator(RecordGenerator):
         if msg_path is None:
             self._msg_path = "gpusummary-msgs"
         else:
-            self._msg_path = msg_dir
+            self._msg_path = msg_path
         self._msg_path = os.path.abspath(self._msg_path)
 
         self._msg_type = "APEL-GPU-summary-message"
@@ -136,11 +136,11 @@ class GPUSummaryGenerator(RecordGenerator):
 def main():
     recs_per_msg = config.defaults['records_per_message']
     no_msgs = config.defaults['number_of_messages']
-    msg_dir = config.defaults['message_dir']
+    msg_path = config.defaults['message_dir']
     msg_fmt = config.defaults['message_format']
 
     try:
-        grg = GPURecordGenerator(recs_per_msg, no_msgs, msg_dir)
+        grg = GPURecordGenerator(recs_per_msg, no_msgs, msg_path)
         grg.write_messages(msg_fmt)
     except KeyboardInterrupt:
         pass
@@ -149,11 +149,11 @@ def main():
 def main_summary():
     recs_per_msg = config.defaults['records_per_message']
     no_msgs = config.defaults['number_of_messages']
-    msg_dir = config.defaults['message_dir']
+    msg_path = config.defaults['message_dir']
     msg_fmt = config.defaults['message_format']
 
     try:
-        gsg = GPUSummaryGenerator(recs_per_msg, no_msgs, msg_dir)
+        gsg = GPUSummaryGenerator(recs_per_msg, no_msgs, msg_path)
         gsg.write_messages(msg_fmt)
     except KeyboardInterrupt:
         pass
