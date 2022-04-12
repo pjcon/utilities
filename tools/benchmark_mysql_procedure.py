@@ -15,6 +15,7 @@ USAGE=f"""{sys.argv[0]} [procedure n]
 
 """
 
+bin = 'mysql_bin'
 
 config = {
         'experiment_dir': './tests',
@@ -130,25 +131,25 @@ def copy_records_old(src):
         shutil.copy(ffrom, fto)
 
 def copy_records(src):
-    subprocess.call(['bin/call_transfer.sh', str(src), '/var/lib/mysql/clientdb'])
+    subprocess.call([f'{bin}/call_transfer.sh', str(src), '/var/lib/mysql/clientdb'])
 
 def delete_all_records():
-    subprocess.call(['bin/call_delete_data.sh', 'all'])
+    subprocess.call([f'{bin}/call_delete_data.sh', 'all'])
 
 def delete_new_records():
-    subprocess.call(['bin/call_delete_data.sh', 'new'])
+    subprocess.call([f'{bin}/call_delete_data.sh', 'new'])
 
 def load_records():
-    subprocess.call(['bin/call_load_data.sh'])
+    subprocess.call([f'{bin}/call_load_data.sh'])
 
 def call_procedure(n=''):
-    subprocess.call(['bin/call_procedure.sh', str(n)])
+    subprocess.call([f'{bin}/call_procedure.sh', str(n)])
 
 def load_procedure():
-    subprocess.call(['bin/load_procedure.sh'])
+    subprocess.call([f'{bin}/load_procedure.sh'])
 
 def count_records():
-    return [int(i) for i in subprocess.check_output(['./bin/call_count_records.sh']).decode().split('\n') if i.isnumeric()]
+    return [int(i) for i in subprocess.check_output(['{bin}/call_count_records.sh']).decode().split('\n') if i.isnumeric()]
 
 
 def run(n, dir='./'):
