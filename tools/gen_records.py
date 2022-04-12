@@ -657,13 +657,13 @@ class EventRecordGenerator(RecordGenerator):
         return record
 
 
-class GPURecordGenerator(RecordGenerator):
-    """Generator for GPU messages."""
+class AcceleratorRecordGenerator(RecordGenerator):
+    """Generator for Accelerator messages."""
 
     def __init__(self, recs_per_msg, no_msgs, msg_path):
-        """Define constants used by the GPU records."""
+        """Define constants used by the Accelerator records."""
 
-        super(GPURecordGenerator, self).__init__(recs_per_msg, no_msgs)
+        super(AcceleratorRecordGenerator, self).__init__(recs_per_msg, no_msgs)
 
         if msg_path is None:
             self._msg_path = "gpu-msgs"
@@ -671,7 +671,7 @@ class GPURecordGenerator(RecordGenerator):
             self._msg_path = msg_dir
         self._msg_path = os.path.abspath(self._msg_path)
 
-        self._msg_type = "APEL-GPU-message"
+        self._msg_type = "APEL-Accelerator-message"
         self._msg_version = "0.1"
 
         # Fields which are required by the message format.
@@ -723,13 +723,13 @@ class GPURecordGenerator(RecordGenerator):
         return record
 
 
-class GPUSummaryGenerator(RecordGenerator):
-    """Generator for GPU summaries."""
+class AcceleratorSummaryGenerator(RecordGenerator):
+    """Generator for Accelerator summaries."""
 
     def __init__(self, recs_per_msg, no_msgs, msg_path):
-        """Define constants used by the GPU records."""
+        """Define constants used by the Accelerator records."""
 
-        super(GPUSummaryGenerator, self).__init__(recs_per_msg, no_msgs)
+        super(AcceleratorSummaryGenerator, self).__init__(recs_per_msg, no_msgs)
 
         if msg_path is None:
             self._msg_path = "gpusummary-msgs"
@@ -737,7 +737,7 @@ class GPUSummaryGenerator(RecordGenerator):
             self._msg_path = msg_dir
         self._msg_path = os.path.abspath(self._msg_path)
 
-        self._msg_type = "APEL-GPU-summary-message"
+        self._msg_type = "APEL-Accelerator-summary-message"
         self._msg_version = "0.1"
 
         # Fields which are required by the message format.
@@ -796,8 +796,8 @@ class LinkedRecordGenerator():
     record_generators = {
         'job':JobRecordGenerator,
         'summary':SummaryRecordGenerator,
-        'gpu':GPURecordGenerator,
-        'gpusummary':GPUSummaryGenerator,
+        'gpu':AcceleratorRecordGenerator,
+        'gpusummary':AcceleratorSummaryGenerator,
         'spec':SpecRecordGenerator,
         'blahd':BlahdRecordGenerator,
         'event':EventRecordGenerator
@@ -1098,10 +1098,10 @@ if __name__ == '__main__':
         srg = SummaryRecordGenerator(recs_per_msg, no_msgs, msg_dir)
         srg.write_messages(msg_fmt)
     elif "gpu" in args:
-        grg = GPURecordGenerator(recs_per_msg, no_msgs, msg_dir)
+        grg = AcceleratorRecordGenerator(recs_per_msg, no_msgs, msg_dir)
         grg.write_messages(msg_fmt)
     elif "gpusummary" in args:
-        gsg = GPUSummaryGenerator(recs_per_msg, no_msgs, msg_dir)
+        gsg = AcceleratorSummaryGenerator(recs_per_msg, no_msgs, msg_dir)
         gsg.write_messages(msg_fmt)
     elif "blahd" in args:
         brg = BlahdRecordGenerator(recs_per_msg, no_msgs, msg_dir)
