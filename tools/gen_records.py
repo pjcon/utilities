@@ -121,7 +121,7 @@ class RecordGenerator(object):
                 record[key] = get_random_int(lower, upper)
 
             elif key in self._float_fields:
-                record[key] = str(get_random_float())
+                record[key] = get_random_float()
             elif key in self._datetime_fields:
                 # Random time in last year
                 random_timestamp = int(time()) - get_random_int(0, 86400*365) # TODO read field range re dates
