@@ -666,7 +666,7 @@ class AcceleratorRecordGenerator(RecordGenerator):
         super(AcceleratorRecordGenerator, self).__init__(recs_per_msg, no_msgs)
 
         if msg_path is None:
-            self._msg_path = "gpu-msgs"
+            self._msg_path = "acc-msgs"
         else:
             self._msg_path = msg_dir
         self._msg_path = os.path.abspath(self._msg_path)
@@ -732,7 +732,7 @@ class AcceleratorSummaryGenerator(RecordGenerator):
         super(AcceleratorSummaryGenerator, self).__init__(recs_per_msg, no_msgs)
 
         if msg_path is None:
-            self._msg_path = "gpusummary-msgs"
+            self._msg_path = "accsummary-msgs"
         else:
             self._msg_path = msg_dir
         self._msg_path = os.path.abspath(self._msg_path)
@@ -796,8 +796,8 @@ class LinkedRecordGenerator():
     record_generators = {
         'job':JobRecordGenerator,
         'summary':SummaryRecordGenerator,
-        'gpu':AcceleratorRecordGenerator,
-        'gpusummary':AcceleratorSummaryGenerator,
+        'accelerator':AcceleratorRecordGenerator,
+        'acceleratorsummary':AcceleratorSummaryGenerator,
         'spec':SpecRecordGenerator,
         'blahd':BlahdRecordGenerator,
         'event':EventRecordGenerator
@@ -1040,15 +1040,22 @@ def timestamp_to_utc(timestamp):
     return datetime.datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
 
+allowed_args = [
+    "jobs", "summaries", "accelerator", "acceleratorsummary", "event", "blahd", "spec", "join-job-records"
+]
+
+
 def usage():
     """Print a usage message."""
     print("Usage: " + sys.argv[0] + \
-        """ [-r <recs-per-msg> -m <no-msgs> -d <directory> -f <format>] jobs|summaries|gpu
+        f""" [-r <recs-per-msg> -m <no-msgs> -d <directory> -f <format>] [jobs|summaries|...]
 
          Defaults: recs-per-msg: 1000
                    no-msgs:      100
-                   directory:    ./job-msgs | ./sum-msgs
-                   format:       apel (csv)
+                   directory:    ./job-msgs, ./sum-msgs, ...
+                   format:       apel, json, csv
+
+        Allowed record types: {allowed_args}
         """)
 
 
@@ -1087,20 +1094,16 @@ if __name__ == '__main__':
         usage()
         sys.exit()
 
-    allowed_args = [
-        "jobs", "summaries", "gpu", "event", "blahd", "spec", "join-job-records", "gpusummary"
-    ]
-
     if "jobs" in args:
         jrg = JobRecordGenerator(recs_per_msg, no_msgs, msg_dir)
         jrg.write_messages(msg_fmt)
     elif "summaries" in args:
         srg = SummaryRecordGenerator(recs_per_msg, no_msgs, msg_dir)
         srg.write_messages(msg_fmt)
-    elif "gpu" in args:
+    elif "accelerator" in args:
         grg = AcceleratorRecordGenerator(recs_per_msg, no_msgs, msg_dir)
         grg.write_messages(msg_fmt)
-    elif "gpusummary" in args:
+    elif "acceleratorsummary" in args:
         gsg = AcceleratorSummaryGenerator(recs_per_msg, no_msgs, msg_dir)
         gsg.write_messages(msg_fmt)
     elif "blahd" in args:
