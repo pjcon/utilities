@@ -1,4 +1,12 @@
 #!/bin/env python
+"""
+This script was from an experiment to test the JoinJobRecords MySQL procedure.
+
+Run this script to progressively generate, load, and process records to
+time-benchmark each step.
+
+This script uses the scripts in mysql_bin to operate with variable privileges.
+"""
 
 import os
 import sys
@@ -13,18 +21,23 @@ import numpy as np
 
 USAGE=f"""{sys.argv[0]} [procedure n]
 
+procedure <n> is simply the procedure name followed by a number which allows
+a basic level of versioning while keeping old procedures in the database.
+
+This script uses the scripts in mysql_bin to operate with variable privileges.
 """
 
 bin = 'mysql_bin'
 
+# In place of a config file, change these as required.
 config = {
         'experiment_dir': './tests',
         'log_file': './tests/log',
-        'results_file': './results.csv',
+        'results_file': './results.csv', # append outputs to this file as well as each subdir in tests
         #'n_records_start': 100,
         #'n_records_stop': 1000,
         #'n_steps': 10,
-        'n_repeat': 1,
+        'n_repeat': 1, # repeat each step to improve time estimate
         'schedule': [10,100,200,500,1000], # <list>/linear/exponential/power10
         #'schedule': [10,100,200], # <list>/linear/exponential/power10
         'preload':True, # repeat schedule starting with preloaded values
@@ -38,9 +51,9 @@ config = {
                          'num_event_pre', 'num_event_post',
                          'num_job_pre', 'num_job_post',
                          ],
-        'delete_old_records':False,
-        'call_procedure_n':1,
-        'load_procedure':False,
+        'delete_old_records':False, # After each run, dump the contents of the table.
+        'call_procedure_n':1, # fix which procedure to call.
+        'load_procedure':False, # load the procedure newly from the procedure file.
 }
 
 def get_datetime():
